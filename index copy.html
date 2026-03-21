@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video to Excited News Broadcast</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h1 { color: #d32f2f; margin-top: 0; }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex-grow: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #d32f2f;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #b71c1c; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        .status.loading { background-color: #e3f2fd; color: #1976d2; display: block; }
+        .status.error { background-color: #ffebee; color: #c62828; display: block; }
+
+        .result-box {
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            display: none;
+        }
+        .label { font-weight: bold; color: #666; margin-bottom: 5px; display: block; text-transform: uppercase; font-size: 12px; }
+        .content { background: #f9f9f9; padding: 15px; border-radius: 6px; margin-bottom: 20px; line-height: 1.6; }
+        audio { width: 100%; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎬 Video News Summarizer</h1>
+    <p>Enter a video URL to generate an 8-second excited news broadcast description.</p>
+    
+    <div class="input-group">
+        <input type="text" id="videoUrl" placeholder="https://v3b.fal.media/files/b/0a930f29/S5ny_XbW_gL3BFCpoAnni_4909954dc8e04c47a3c26d248399227f.mp4" value="https://v3b.fal.media/files/b/0a930f29/S5ny_XbW_gL3BFCpoAnni_4909954dc8e04c47a3c26d248399227f.mp4">
+        <button id="processBtn">Generate Broadcast</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div id="results" class="result-box">
+        <div>
+            <span class="label">Video Description</span>
+            <div id="descriptionContent" class="content"></div>
+        </div>
+        <div>
+            <span class="label">Excited 8s Script</span>
+            <div id="summaryContent" class="content" style="font-weight: bold; color: #d32f2f;"></div>
+        </div>
+        <div>
+            <span class="label">Audio Report (Excited Reporter)</span>
+            <audio id="audioPlayer" controls></audio>
+        </div>
+    </div>
+</div>
+
+<script>
+    const FAL_KEY = "e5b2bcf6-5e92-4728-9f33-3866ca7736c0:0bc6425bcfe3c808ef06060036ef719a";
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const processBtn = document.getElementById('processBtn');
+
+    async function falRequest(model, body) {
+        const response = await fetch(`https://fal.run/${model}`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Key ${FAL_KEY}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`fal.ai error (${model}): ${err}`);
+        }
+        return await response.json();
+    }
+
+    function updateStatus(msg, type = 'loading') {
+        statusEl.innerText = msg;
+        statusEl.className = `status ${type}`;
+    }
+
+    processBtn.addEventListener('click', async () => {
+        const videoUrl = document.getElementById('videoUrl').value.trim();
+        if (!videoUrl) return alert("Please enter a video URL");
+
+        processBtn.disabled = true;
+        resultsEl.style.display = 'none';
+        updateStatus("Step 1/3: Analyzing video content...");
+
+        try {
+            // 1. Video Understanding
+            const videoToText = await falRequest("fal-ai/video-understanding", {
+                video_url: videoUrl,
+                prompt: "Describe what is happening in this video in detail.",
+            });
+            document.getElementById('descriptionContent').innerText = videoToText.output;
+
+            // 2. LLM Summarization
+            updateStatus("Step 2/3: Crafting excited 8s script...");
+            const llmSummary = await falRequest("fal-ai/any-llm", {
+                model: "anthropic/claude-3.5-sonnet",
+                prompt: `Summarize the following video description into a short, high-energy news script. 
+                IMPORTANT: The script must be exactly the right length to be spoken in 8 seconds at a fast, excited pace. 
+                Aim for roughly 25-30 words.
+                Output ONLY the summary text, no preamble or quotes.
+                
+                Description: ${videoToText.output}`,
+            });
+            const summary = llmSummary.output.trim();
+            document.getElementById('summaryContent').innerText = summary;
+
+            // 3. TTS Generation
+            updateStatus("Step 3/3: Generating reporter voice...");
+            const ttsResponse = await falRequest("fal-ai/minimax-tts/text-to-speech/turbo", {
+                text: summary,
+                voice_speed: 1.2,
+            });
+
+            // Show results
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.src = ttsResponse.audio.url;
+            
+            resultsEl.style.display = 'block';
+            statusEl.style.display = 'none';
+            audioPlayer.play();
+
+        } catch (error) {
+            console.error(error);
+            updateStatus("Error: " + error.message, 'error');
+        } finally {
+            processBtn.disabled = false;
+        }
+    });
+</script>
+
+</body>
+</html>

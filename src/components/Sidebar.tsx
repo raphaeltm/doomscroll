@@ -47,12 +47,32 @@ export function Sidebar() {
 
     try {
       const result = await runGeminiSimulation(googleApiKey, prompt, {
-        onDayGenerated: (day) => addDay(day),
+        videoApiKey,
+        onDayGenerated: (day) => {
+          if (useStore.getState().simulation?.days.some(d => d.day === day.day)) {
+            updateDay(day.day, day);
+          } else {
+            addDay(day);
+          }
+        },
         onStatusChange: (status) => setGenerationStatus(status),
       });
+
+      // Stitch final video if we have video API key
+      let finalVideoUrl = '';
+      if (videoApiKey) {
+        setGenerationStatus('Generating final broadcast...');
+        const { generateTTS, stitchVideos } = await import('../api/video');
+        const audioUrl = await generateTTS(videoApiKey, result.newsScript);
+        const dayVideoUrls = result.days.map(d => d.videoUrl).filter(u => u) as string[];
+        finalVideoUrl = await stitchVideos(videoApiKey, dayVideoUrls, audioUrl);
+      }
+
       updateSimulation({
         title: result.title,
         weekSummary: result.weekSummary,
+        newsScript: result.newsScript,
+        finalVideoUrl,
         status: 'complete',
         days: result.days,
       });

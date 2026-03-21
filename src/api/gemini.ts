@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import type { Actor, TimelineDay, TimelineEvent, RealWorldContext } from '../types';
 import { fetchRealWorldContext } from './sources';
+import { generateVideo } from './video';
 
 const FAST_MODEL = 'gemini-2.5-flash';
 const DETAIL_MODEL = 'gemini-2.5-pro';
@@ -48,6 +49,10 @@ const dayResponseSchema = z.object({
 const weekSummarySchema = z.object({
   title: z.string(),
   summary: z.string(),
+});
+
+const newsScriptSchema = z.object({
+  script: z.string(),
 });
 
 // --- Helper to call Gemini with structured output ---
@@ -208,39 +213,61 @@ async function generateWeekSummary(
   );
 }
 
+// --- Step 4: News script ---
+
+async function generateNewsScript(
+  ai: GoogleGenAI,
+  simulationTitle: string,
+  days: TimelineDay[],
+): Promise<string> {
+  const summaryBlock = days
+    .map((d) => `Day ${d.day}: ${d.summary}`)
+    .join('\n');
+
+  const result = await callGemini(
+    ai,
+    FAST_MODEL,
+    `You are a high-energy news anchor scriptwriter. Create a dramatic, fast-paced news script for a broadcast summarizing the following crisis. 
+    The script should start with "Breaking News!" and cover the highlights of the 7-day simulation. 
+    Keep it concise and exciting. It will be the voiceover for a stitched video.`,
+    `Simulation: ${simulationTitle}\n\nDaily Summaries:\n${summaryBlock}\n\nProvide the final news script text only.`,
+    newsScriptSchema,
+  );
+  return result.script;
+}
+
 // --- Main orchestrator ---
 
 export interface SimulationCallbacks {
   onDayGenerated?: (day: TimelineDay, dayIndex: number) => void;
   onStatusChange?: (status: string) => void;
+  videoApiKey?: string;
 }
 
 export async function runGeminiSimulation(
   apiKey: string,
   prompt: string,
   callbacks?: SimulationCallbacks,
-): Promise<{ title: string; days: TimelineDay[]; weekSummary: string }> {
+): Promise<{ title: string; days: TimelineDay[]; weekSummary: string; newsScript: string }> {
   const ai = new GoogleGenAI({ apiKey });
 
-  // Step 0: Fetch real-world context + research in parallel
   callbacks?.onStatusChange?.('Fetching real-world data...');
   const [realWorldContext, research] = await Promise.all([
     fetchRealWorldContext(prompt),
     researchScenario(ai, prompt),
   ]);
 
-  // Build context block from pre-fetched data + research
   let contextBlock = buildContextBlock(realWorldContext);
   if (research) {
     contextBlock += '\n\n=== GOOGLE SEARCH RESEARCH ===\n' + research;
   }
 
-  // Step 1: Identify actors (grounded in real data)
   callbacks?.onStatusChange?.('Identifying actors...');
   let actors = await identifyActors(ai, prompt, contextBlock);
 
-  // Step 2: Generate each day iteratively
   const days: TimelineDay[] = [];
+  const videoPromises: Promise<void>[] = [];
+
   for (let dayNum = 1; dayNum <= 7; dayNum++) {
     callbacks?.onStatusChange?.(`Generating day ${dayNum} of 7...`);
     const { day, updatedActors } = await generateDay(
@@ -251,14 +278,34 @@ export async function runGeminiSimulation(
       dayNum,
       contextBlock,
     );
+    
+    if (callbacks?.videoApiKey && day.videoPrompt) {
+      day.videoGenerating = true;
+      const dayRef = day;
+      const vPromise = generateVideo(callbacks.videoApiKey, day.videoPrompt)
+        .then(url => {
+          dayRef.videoUrl = url;
+          dayRef.videoGenerating = false;
+          callbacks?.onDayGenerated?.(dayRef, dayNum - 1);
+        });
+      videoPromises.push(vPromise);
+    }
+
     days.push(day);
     actors = updatedActors;
     callbacks?.onDayGenerated?.(day, dayNum - 1);
   }
 
-  // Step 3: Week summary
+  if (videoPromises.length > 0) {
+    callbacks?.onStatusChange?.('Finishing video generations...');
+    await Promise.all(videoPromises);
+  }
+
   callbacks?.onStatusChange?.('Generating summary...');
   const { title, summary } = await generateWeekSummary(ai, prompt, days);
 
-  return { title, days, weekSummary: summary };
+  callbacks?.onStatusChange?.('Drafting news script...');
+  const newsScript = await generateNewsScript(ai, title, days);
+
+  return { title, days, weekSummary: summary, newsScript };
 }

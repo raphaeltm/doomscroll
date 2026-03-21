@@ -42,6 +42,8 @@ export interface Simulation {
   title: string;
   days: TimelineDay[];
   weekSummary?: string;
+  finalVideoUrl?: string;
+  newsScript?: string;
   status: 'idle' | 'generating' | 'complete' | 'error';
   error?: string;
 }

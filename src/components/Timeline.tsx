@@ -98,6 +98,29 @@ export function Timeline() {
           <p className="text-xs text-doom-text-muted leading-relaxed italic">
             {simulation.weekSummary}
           </p>
+          {simulation.finalVideoUrl && (
+            <div className="mt-4 rounded-xl overflow-hidden border border-doom-red/30 shadow-lg shadow-doom-red/10 animate-fade-slide-in">
+              <div className="bg-doom-red/20 px-3 py-1.5 flex items-center gap-2 border-b border-doom-red/20">
+                <div className="w-1.5 h-1.5 rounded-full bg-doom-red animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-doom-red font-mono">
+                  Final Broadcast
+                </span>
+              </div>
+              <video
+                src={simulation.finalVideoUrl}
+                controls
+                autoPlay
+                className="w-full aspect-video bg-black"
+              />
+              {simulation.newsScript && (
+                <div className="p-3 bg-doom-panel/50">
+                  <p className="text-[11px] text-doom-text-muted leading-relaxed font-mono italic">
+                    {simulation.newsScript}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
