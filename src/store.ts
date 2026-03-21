@@ -22,6 +22,8 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   timelineOpen: boolean;
   setTimelineOpen: (open: boolean) => void;
+  generationStatus: string;
+  setGenerationStatus: (status: string) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -68,4 +70,11 @@ export const useStore = create<AppState>((set) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   timelineOpen: true,
   setTimelineOpen: (open) => set({ timelineOpen: open }),
+  generationStatus: '',
+  setGenerationStatus: (status) => set({ generationStatus: status }),
 }));
+
+// Expose store for E2E testing (dev only)
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__store = useStore;
+}
