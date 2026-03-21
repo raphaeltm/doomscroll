@@ -33,6 +33,7 @@ export interface TimelineDay {
   videoUrl?: string;
   videoPrompt?: string;
   videoGenerating?: boolean;
+  videoError?: string;
 }
 
 export interface Simulation {
@@ -43,6 +44,11 @@ export interface Simulation {
   weekSummary?: string;
   status: 'idle' | 'generating' | 'complete' | 'error';
   error?: string;
+  finalVideoUrl?: string;
+  finalAudioUrl?: string;
+  newsScript?: string;
+  overviewGenerating?: boolean;
+  overviewError?: string;
 }
 
 // --- Real-world context types ---

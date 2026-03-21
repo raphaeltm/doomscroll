@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { generateVideo } from '../api/video';
-import { buildVideoPrompt } from '../api/videoPrompt';
-import type { Actor, TimelineDay } from '../types';
+import type { Actor } from '../types';
+import { BroadcastPlayer } from './BroadcastPlayer';
 
 const severityBadge: Record<string, string> = {
   low: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
@@ -79,25 +78,7 @@ function WeekSummary({ text }: { text: string }) {
 }
 
 export function Timeline() {
-  const { simulation, selectedDay, setSelectedDay, timelineOpen, setTimelineOpen, googleApiKey, videoApiKey, updateDay } = useStore();
-
-  const handleGenerateVideo = async (day: TimelineDay) => {
-    const key = videoApiKey || googleApiKey;
-    if (!key) {
-      alert('Please set a Google API key (or Video API key) in the sidebar.');
-      return;
-    }
-    const cleanPrompt = buildVideoPrompt(day);
-    updateDay(day.day, { videoGenerating: true });
-    try {
-      const videoUrl = await generateVideo(key, cleanPrompt);
-      updateDay(day.day, { videoUrl, videoGenerating: false });
-    } catch (err) {
-      console.error('Video generation failed:', err);
-      updateDay(day.day, { videoGenerating: false });
-      alert(`Video generation failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  };
+  const { simulation, selectedDay, setSelectedDay, timelineOpen, setTimelineOpen } = useStore();
 
   if (!timelineOpen) return null;
 
@@ -140,6 +121,9 @@ export function Timeline() {
 
       {/* Week summary — collapsible */}
       {simulation.weekSummary && <WeekSummary text={simulation.weekSummary} />}
+
+      {/* Broadcast player */}
+      <BroadcastPlayer />
 
       {/* Timeline */}
       <div className="flex-1 overflow-y-auto">
@@ -252,17 +236,11 @@ export function Timeline() {
                     </span>
                   </div>
                 </div>
-              ) : day.videoPrompt ? (
-                <div className="mt-3 bg-doom-dark/50 rounded-lg p-3 border border-doom-border/30">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleGenerateVideo(day);
-                    }}
-                    className="w-full bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white text-xs py-2 rounded-lg transition-colors font-medium border border-doom-border/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50"
-                  >
-                    Generate Video
-                  </button>
+              ) : day.videoError ? (
+                <div className="mt-3 bg-red-950/20 rounded-lg p-3 border border-red-500/20">
+                  <span className="text-xs text-red-400">
+                    Video failed: {day.videoError}
+                  </span>
                 </div>
               ) : null}
             </div>
