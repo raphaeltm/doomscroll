@@ -1,3 +1,4 @@
+import { withCache } from './cache';
 import type { GDELTEvent, WikidataActor, RealWorldContext } from '../types';
 
 // --- GDELT GEO 2.0 API ---
@@ -64,41 +65,43 @@ export async function fetchGDELTEvents(scenario: string): Promise<GDELTEvent[]> 
   const keywords = extractKeywords(scenario);
   if (!keywords) return [];
 
-  // Use the DOC API (ArtList mode) — the GEO API endpoint has been removed
-  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(keywords)}&mode=ArtList&format=json&timespan=3d&maxrecords=50`;
+  return withCache(`gdelt_${keywords}`, async () => {
+    // Use the DOC API (ArtList mode) — the GEO API endpoint has been removed
+    const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(keywords)}&mode=ArtList&format=json&timespan=3d&maxrecords=50`;
 
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const data = await res.json();
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
 
-    const articles = data.articles;
-    if (!Array.isArray(articles)) return [];
+      const articles = data.articles;
+      if (!Array.isArray(articles)) return [];
 
-    // Take top 20 events, deduplicated by title
-    const seen = new Set<string>();
-    const events: GDELTEvent[] = [];
+      // Take top 20 events, deduplicated by title
+      const seen = new Set<string>();
+      const events: GDELTEvent[] = [];
 
-    for (const article of articles) {
-      if (events.length >= 20) break;
-      const title = article.title || '';
-      if (!title || seen.has(title)) continue;
-      seen.add(title);
+      for (const article of articles) {
+        if (events.length >= 20) break;
+        const title = article.title || '';
+        if (!title || seen.has(title)) continue;
+        seen.add(title);
 
-      events.push({
-        title,
-        url: article.url || '',
-        domain: article.domain || '',
-        lat: 0,
-        lng: 0,
-        locationName: article.sourcecountry || '',
-        tone: 0,
-      });
+        events.push({
+          title,
+          url: article.url || '',
+          domain: article.domain || '',
+          lat: 0,
+          lng: 0,
+          locationName: article.sourcecountry || '',
+          tone: 0,
+        });
+      }
+      return events;
+    } catch {
+      return [];
     }
-    return events;
-  } catch {
-    return [];
-  }
+  });
 }
 
 // --- Wikidata SPARQL ---
@@ -107,55 +110,57 @@ export async function fetchWikidataActors(scenario: string): Promise<WikidataAct
   const countryIds = extractCountries(scenario);
   if (countryIds.length === 0) return [];
 
-  const values = countryIds.map((id) => `wd:${id}`).join(' ');
-  const sparql = `
-    SELECT ?country ?countryLabel ?leader ?leaderLabel ?positionLabel WHERE {
-      VALUES ?country { ${values} }
-      {
-        ?country wdt:P35 ?leader .
-        ?country p:P35 ?stmt .
-        ?stmt ps:P35 ?leader .
-        OPTIONAL { ?stmt pq:P580 ?start }
-        FILTER NOT EXISTS { ?stmt pq:P582 ?end }
-        BIND("Head of State" AS ?positionLabel)
-      } UNION {
-        ?country wdt:P6 ?leader .
-        ?country p:P6 ?stmt2 .
-        ?stmt2 ps:P6 ?leader .
-        OPTIONAL { ?stmt2 pq:P580 ?start }
-        FILTER NOT EXISTS { ?stmt2 pq:P582 ?end }
-        BIND("Head of Government" AS ?positionLabel)
+  return withCache(`wikidata_${countryIds.sort().join('_')}`, async () => {
+    const values = countryIds.sort().map((id) => `wd:${id}`).join(' ');
+    const sparql = `
+      SELECT ?country ?countryLabel ?leader ?leaderLabel ?positionLabel WHERE {
+        VALUES ?country { ${values} }
+        {
+          ?country wdt:P35 ?leader .
+          ?country p:P35 ?stmt .
+          ?stmt ps:P35 ?leader .
+          OPTIONAL { ?stmt pq:P580 ?start }
+          FILTER NOT EXISTS { ?stmt pq:P582 ?end }
+          BIND("Head of State" AS ?positionLabel)
+        } UNION {
+          ?country wdt:P6 ?leader .
+          ?country p:P6 ?stmt2 .
+          ?stmt2 ps:P6 ?leader .
+          OPTIONAL { ?stmt2 pq:P580 ?start }
+          FILTER NOT EXISTS { ?stmt2 pq:P582 ?end }
+          BIND("Head of Government" AS ?positionLabel)
+        }
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
       }
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
-    }
-  `;
+    `;
 
-  try {
-    const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/sparql-results+json' },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-
-    const seen = new Set<string>();
-    const actors: WikidataActor[] = [];
-
-    for (const binding of data.results?.bindings || []) {
-      const name = binding.leaderLabel?.value || '';
-      if (!name || seen.has(name)) continue;
-      seen.add(name);
-
-      actors.push({
-        name,
-        position: binding.positionLabel?.value || '',
-        country: binding.countryLabel?.value || '',
+    try {
+      const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(sparql)}&format=json`;
+      const res = await fetch(url, {
+        headers: { 'Accept': 'application/sparql-results+json' },
       });
+      if (!res.ok) return [];
+      const data = await res.json();
+
+      const seen = new Set<string>();
+      const actors: WikidataActor[] = [];
+
+      for (const binding of data.results?.bindings || []) {
+        const name = binding.leaderLabel?.value || '';
+        if (!name || seen.has(name)) continue;
+        seen.add(name);
+
+        actors.push({
+          name,
+          position: binding.positionLabel?.value || '',
+          country: binding.countryLabel?.value || '',
+        });
+      }
+      return actors;
+    } catch {
+      return [];
     }
-    return actors;
-  } catch {
-    return [];
-  }
+  });
 }
 
 // --- Fetch all real-world context in parallel ---

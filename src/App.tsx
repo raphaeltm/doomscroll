@@ -3,6 +3,7 @@ import { GenerationStatus } from './components/GenerationStatus';
 import { Sidebar } from './components/Sidebar';
 import { WorldMap } from './components/WorldMap';
 import { Timeline } from './components/Timeline';
+import { FinalBroadcast } from './components/FinalBroadcast';
 import { TestVideoFlow } from './TestVideoFlow';
 
 function App() {
@@ -14,11 +15,12 @@ function App() {
       <GenerationStatus />
       <Sidebar />
       <Timeline />
+      <FinalBroadcast />
 
       {/* Test Mode Toggle */}
       <button 
         onClick={() => setTestMode(!testMode)}
-        className="absolute bottom-4 left-4 z-[2000] bg-gray-800/80 hover:bg-gray-700 text-[10px] px-3 py-1.5 rounded border border-gray-700 text-gray-400"
+        className="absolute bottom-4 right-4 z-[2000] bg-gray-800/80 hover:bg-gray-700 text-[10px] px-3 py-1.5 rounded border border-gray-700 text-gray-400"
       >
         {testMode ? 'Close Test Video' : 'Test Video Flow'}
       </button>

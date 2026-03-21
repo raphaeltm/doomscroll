@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useStore } from '../store';
 import type { Actor } from '../types';
 
@@ -52,6 +53,17 @@ function getDayBgTint(day: number): string {
 
 export function Timeline() {
   const { simulation, selectedDay, setSelectedDay, timelineOpen, setTimelineOpen } = useStore();
+  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+
+  const toggleEvent = (eventId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  };
 
   if (!timelineOpen) return null;
 
@@ -92,38 +104,6 @@ export function Timeline() {
         </p>
       </div>
 
-      {/* Week summary */}
-      {simulation.weekSummary && (
-        <div className="px-5 py-3 border-b border-doom-border bg-doom-surface/30">
-          <p className="text-xs text-doom-text-muted leading-relaxed italic">
-            {simulation.weekSummary}
-          </p>
-          {simulation.finalVideoUrl && (
-            <div className="mt-4 rounded-xl overflow-hidden border border-doom-red/30 shadow-lg shadow-doom-red/10 animate-fade-slide-in">
-              <div className="bg-doom-red/20 px-3 py-1.5 flex items-center gap-2 border-b border-doom-red/20">
-                <div className="w-1.5 h-1.5 rounded-full bg-doom-red animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-doom-red font-mono">
-                  Final Broadcast
-                </span>
-              </div>
-              <video
-                src={simulation.finalVideoUrl}
-                controls
-                autoPlay
-                className="w-full aspect-video bg-black"
-              />
-              {simulation.newsScript && (
-                <div className="p-3 bg-doom-panel/50">
-                  <p className="text-[11px] text-doom-text-muted leading-relaxed font-mono italic">
-                    {simulation.newsScript}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Timeline */}
       <div className="flex-1 overflow-y-auto">
         {daysToShow.map((day) => (
@@ -157,80 +137,98 @@ export function Timeline() {
 
               {/* Events */}
               <div className="space-y-2">
-                {day.events.map((event, eventIndex) => (
+                {day.events.map((event, eventIndex) => {
+                  const isExpanded = expandedEvents.has(event.id);
+                  return (
                   <div
                     key={event.id}
-                    className={`bg-doom-dark/80 rounded-lg p-3 text-xs border border-doom-border/30 ${getDayBorderWidth(day.day)} ${severityBorder[event.severity]} transition-colors animate-fade-slide-in`}
+                    className={`bg-doom-dark/80 rounded-lg p-3 text-xs border border-doom-border/30 ${getDayBorderWidth(day.day)} ${severityBorder[event.severity]} transition-colors animate-fade-slide-in cursor-pointer`}
                     style={{ animationDelay: `${eventIndex * 50}ms` }}
+                    onClick={(e) => toggleEvent(event.id, e)}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5">
                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${severityDot[event.severity]}`} />
                         <span className="font-semibold text-doom-text">
                           {event.title}
                         </span>
                       </div>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 font-mono ${severityBadge[event.severity]}`}
-                      >
-                        {event.severity}
-                      </span>
-                    </div>
-                    <p className="text-doom-text-muted leading-relaxed">
-                      {event.description}
-                    </p>
-                    <div className="mt-2 flex items-center gap-1 text-doom-text-faint">
-                      <span className="text-[10px]">&#x1f4cd;</span>
-                      <span className="text-[11px] font-mono">{event.location.name}</span>
-                    </div>
-                    {event.actors.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {event.actors.map((a) => (
-                          <span
-                            key={a.name}
-                            className={`rounded px-1.5 py-0.5 text-[10px] border ${actorTypeStyle[a.type] || 'bg-doom-surface text-doom-text-muted border-doom-border/30'}`}
-                          >
-                            {a.name}
-                          </span>
-                        ))}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 font-mono ${severityBadge[event.severity]}`}
+                        >
+                          {event.severity}
+                        </span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`text-doom-text-faint transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
                       </div>
-                    )}
-                    {event.sources && event.sources.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {event.sources.map((src, i) => (
-                          <a
-                            key={i}
-                            href={src.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 rounded px-1.5 py-0.5 text-[9px] text-blue-400 hover:text-blue-300 border border-blue-500/20 transition-colors"
-                            title={src.title}
-                          >
-                            <span className="text-[8px]">🔗</span>
-                            {src.title.length > 30 ? src.title.slice(0, 30) + '...' : src.title}
-                          </a>
-                        ))}
-                      </div>
+                    </div>
+                    {isExpanded && (
+                      <>
+                        <p className="text-doom-text-muted leading-relaxed mt-1.5">
+                          {event.description}
+                        </p>
+                        <div className="mt-2 flex items-center gap-1 text-doom-text-faint">
+                          <span className="text-[10px]">&#x1f4cd;</span>
+                          <span className="text-[11px] font-mono">{event.location.name}</span>
+                        </div>
+                        {event.actors.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {event.actors.map((a) => (
+                              <span
+                                key={a.name}
+                                className={`rounded px-1.5 py-0.5 text-[10px] border ${actorTypeStyle[a.type] || 'bg-doom-surface text-doom-text-muted border-doom-border/30'}`}
+                              >
+                                {a.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {event.sources && event.sources.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {event.sources.map((src, i) => (
+                              <a
+                                key={i}
+                                href={src.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 rounded px-1.5 py-0.5 text-[9px] text-blue-400 hover:text-blue-300 border border-blue-500/20 transition-colors"
+                                title={src.title}
+                              >
+                                <span className="text-[8px]">🔗</span>
+                                {src.title.length > 30 ? src.title.slice(0, 30) + '...' : src.title}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
-              {/* Video prompt */}
+              {/* Video */}
               {day.videoPrompt && (
                 <div className="mt-3 bg-doom-dark/50 rounded-lg p-3 border border-doom-border/30">
-                  <div className="text-[10px] uppercase tracking-wider text-doom-text-faint mb-1.5 font-medium font-mono">
-                    Video Prompt
-                  </div>
-                  <p className="text-xs text-doom-text-muted leading-relaxed italic">
-                    "{day.videoPrompt}"
-                  </p>
                   {day.videoUrl ? (
                     <video
                       src={day.videoUrl}
                       controls
-                      className="mt-2 w-full rounded-lg"
+                      className="w-full rounded-lg"
                     />
                   ) : (
                     <button className="mt-2 w-full bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white text-xs py-2 rounded-lg transition-colors font-medium border border-doom-border/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50">

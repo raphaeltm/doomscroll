@@ -24,6 +24,10 @@ interface AppState {
   setTimelineOpen: (open: boolean) => void;
   generationStatus: string;
   setGenerationStatus: (status: string) => void;
+  useCachedMode: boolean;
+  setUseCachedMode: (enabled: boolean) => void;
+  uploadedImage: string | null;
+  setUploadedImage: (image: string | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -72,6 +76,10 @@ export const useStore = create<AppState>((set) => ({
   setTimelineOpen: (open) => set({ timelineOpen: open }),
   generationStatus: '',
   setGenerationStatus: (status) => set({ generationStatus: status }),
+  useCachedMode: true,
+  setUseCachedMode: (enabled) => set({ useCachedMode: enabled }),
+  uploadedImage: null,
+  setUploadedImage: (image) => set({ uploadedImage: image }),
 }));
 
 // Expose store for E2E testing (dev only)

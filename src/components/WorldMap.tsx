@@ -243,26 +243,6 @@ export function WorldMap() {
         </div>
       )}
 
-      {/* Generating progress state */}
-      {isGenerating && (
-        <div className="absolute inset-0 flex items-center justify-center z-[500] pointer-events-none">
-          <div className="text-center">
-            <p className="text-doom-text-muted text-sm font-mono mb-4">
-              Generating Day {daysGenerated + 1} of 7...
-            </p>
-            <div className="flex gap-1.5 justify-center">
-              {Array.from({ length: 7 }, (_, i) => (
-                <div
-                  key={i}
-                  className={`w-8 h-1.5 rounded-full transition-colors duration-500 ${
-                    i < daysGenerated ? 'bg-doom-red' : 'bg-doom-border'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
