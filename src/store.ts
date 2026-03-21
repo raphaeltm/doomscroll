@@ -25,12 +25,21 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
-  claudeApiKey: '',
-  googleApiKey: '',
-  videoApiKey: '',
-  setClaudeApiKey: (key) => set({ claudeApiKey: key }),
-  setGoogleApiKey: (key) => set({ googleApiKey: key }),
-  setVideoApiKey: (key) => set({ videoApiKey: key }),
+  claudeApiKey: localStorage.getItem('claudeApiKey') ?? '',
+  googleApiKey: localStorage.getItem('googleApiKey') ?? '',
+  videoApiKey: localStorage.getItem('videoApiKey') ?? '',
+  setClaudeApiKey: (key) => {
+    localStorage.setItem('claudeApiKey', key);
+    set({ claudeApiKey: key });
+  },
+  setGoogleApiKey: (key) => {
+    localStorage.setItem('googleApiKey', key);
+    set({ googleApiKey: key });
+  },
+  setVideoApiKey: (key) => {
+    localStorage.setItem('videoApiKey', key);
+    set({ videoApiKey: key });
+  },
 
   simulation: null,
   setSimulation: (sim) => set({ simulation: sim }),

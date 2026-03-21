@@ -18,6 +18,13 @@ describe('store', () => {
     expect(useStore.getState().claudeApiKey).toBe('test-key');
   });
 
+  it('persists API keys to localStorage', () => {
+    useStore.getState().setGoogleApiKey('google-key-123');
+    useStore.getState().setVideoApiKey('video-key-456');
+    expect(localStorage.getItem('googleApiKey')).toBe('google-key-123');
+    expect(localStorage.getItem('videoApiKey')).toBe('video-key-456');
+  });
+
   it('sets simulation', () => {
     const sim = {
       id: '1',
