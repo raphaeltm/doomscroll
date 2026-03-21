@@ -122,7 +122,7 @@ export function WorldMap() {
           ref={globeRef}
           width={dims.width}
           height={dims.height}
-          globeImageUrl="//cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg"
+          globeImageUrl="https://unpkg.com/three-globe/example/img/earth-night.jpg"
           backgroundColor="rgba(0,0,0,0)"
           atmosphereColor="#ff2d2d"
           atmosphereAltitude={0.15}
