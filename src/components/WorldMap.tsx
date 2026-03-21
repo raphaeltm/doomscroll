@@ -1,8 +1,16 @@
 import Globe from 'react-globe.gl';
 import type { GlobeMethods } from 'react-globe.gl';
 import { useStore } from '../store';
-import type { TimelineEvent } from '../types';
+import type { TimelineDay, TimelineEvent } from '../types';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+
+interface ArcDatum {
+  startLat: number;
+  startLng: number;
+  endLat: number;
+  endLng: number;
+  color: string;
+}
 
 const severityColors: Record<string, string> = {
   low: '#3b82f6',
@@ -45,6 +53,39 @@ export function WorldMap() {
         ? simulation.days.filter((d) => d.day === selectedDay)
         : simulation.days;
       daysToShow.forEach((d) => result.push(...d.events));
+    }
+    return result;
+  }, [simulation, selectedDay]);
+
+  // Build causal arcs from triggeredBy references
+  const arcs = useMemo(() => {
+    if (!simulation?.days) return [];
+    const eventMap = new Map<string, TimelineEvent>();
+    for (const day of simulation.days) {
+      for (const ev of day.events) eventMap.set(ev.id, ev);
+    }
+
+    const daysToShow: TimelineDay[] = selectedDay
+      ? simulation.days.filter((d) => d.day === selectedDay)
+      : simulation.days;
+
+    const result: ArcDatum[] = [];
+    for (const day of daysToShow) {
+      for (const ev of day.events) {
+        if (!ev.triggeredBy) continue;
+        const color = severityColors[ev.severity] || severityColors.low;
+        for (const srcId of ev.triggeredBy) {
+          const src = eventMap.get(srcId);
+          if (!src) continue;
+          result.push({
+            startLat: src.location.lat,
+            startLng: src.location.lng,
+            endLat: ev.location.lat,
+            endLng: ev.location.lng,
+            color,
+          });
+        }
+      }
     }
     return result;
   }, [simulation, selectedDay]);
@@ -167,6 +208,17 @@ export function WorldMap() {
           pointLabel={getPointLabel}
           pointsMerge={false}
           pointsTransitionDuration={800}
+          arcsData={arcs}
+          arcStartLat="startLat"
+          arcStartLng="startLng"
+          arcEndLat="endLat"
+          arcEndLng="endLng"
+          arcColor="color"
+          arcStroke={0.5}
+          arcDashLength={0.4}
+          arcDashGap={0.2}
+          arcDashAnimateTime={1500}
+          arcsTransitionDuration={800}
         />
       )}
 

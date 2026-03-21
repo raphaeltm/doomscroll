@@ -29,6 +29,7 @@ const actionSchema = z.object({
   }),
   actors: z.array(actorSchema),
   severity: z.enum(['low', 'medium', 'high', 'critical']),
+  triggeredBy: z.array(z.string()).optional(),
 });
 
 const dayResponseSchema = z.object({
@@ -184,7 +185,7 @@ function buildPreviousDaysContext(previousDays: TimelineDay[]): string {
   return previousDays
     .map(
       (d) =>
-        `Day ${d.day} (${d.date}): ${d.summary}\nEvents: ${d.events.map((e) => `- ${e.title} at ${e.location.name}`).join('\n')}`,
+        `Day ${d.day} (${d.date}): ${d.summary}\nEvents:\n${d.events.map((e) => `- [${e.id}] ${e.title} at ${e.location.name}`).join('\n')}`,
     )
     .join('\n\n');
 }
@@ -220,7 +221,9 @@ You MUST use the real-world context data provided below (current leaders from Wi
 
 Generate realistic events for a single day in a crisis scenario. Each event must have precise GPS coordinates (lat/lng) for real locations. Include 3-5 events across different locations. Escalate tension naturally based on previous days. Also update the actor list — add new actors that emerge, update descriptions for existing ones, and keep actors that are still relevant.
 
-Use REAL names of current world leaders, real organizations, and real locations based on the provided context.`,
+Use REAL names of current world leaders, real organizations, and real locations based on the provided context.
+
+Each event may include a "triggeredBy" field — an array of event IDs from previous days that directly caused or triggered this event. Use the exact IDs shown in square brackets in the previous days context (e.g. ["day1-event2", "day2-event1"]). Only reference events that are genuine causal triggers — not every event needs a trigger, and Day 1 events will have none.`,
     `Scenario: ${prompt}\n\nActive actors:\n${actorList}\n\nPrevious days:\n${prevContext}${contextBlock}\n\nGenerate Day ${dayNumber} of 7. Provide events, a day summary, a cinematic video prompt, and an updated actor list.
 
 IMPORTANT for the videoPrompt field: The video prompt must be completely abstract and cinematic. Do NOT include any real names, titles, positions, organizations, countries, or identifying information. Instead use generic terms like "officials", "diplomats", "military personnel", "leaders", "figures in suits". Describe only the visual scene, mood, lighting, and atmosphere. Example: "A tense meeting in a dimly lit modern conference room, figures in dark suits around a long table, rain streaking down floor-to-ceiling windows, emergency red lighting reflecting off polished surfaces." The prompt should work as a standalone cinematic scene description with no real-world references.`,
@@ -235,14 +238,21 @@ IMPORTANT for the videoPrompt field: The video prompt must be completely abstrac
     }
   }
 
-  const events: TimelineEvent[] = result.events.map((e, i) => ({
-    ...e,
-    id: `day${dayNumber}-event${i + 1}`,
-    actors: e.actors.map((a) => ({
-      ...a,
-      sources: actorSourceMap.get(a.name) ?? undefined,
-    })),
-  }));
+  // Collect valid event IDs from all previous days for triggeredBy validation
+  const validEventIds = new Set(previousDays.flatMap((d) => d.events.map((e) => e.id)));
+
+  const events: TimelineEvent[] = result.events.map((e, i) => {
+    const triggeredBy = e.triggeredBy?.filter((id) => validEventIds.has(id));
+    return {
+      ...e,
+      id: `day${dayNumber}-event${i + 1}`,
+      triggeredBy: triggeredBy?.length ? triggeredBy : undefined,
+      actors: e.actors.map((a) => ({
+        ...a,
+        sources: actorSourceMap.get(a.name) ?? undefined,
+      })),
+    };
+  });
 
   // Carry sources forward to updated actors too
   const updatedActors: Actor[] = result.updatedActors.map((a) => ({
