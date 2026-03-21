@@ -80,6 +80,17 @@ function WeekSummary({ text }: { text: string }) {
 
 export function Timeline() {
   const { simulation, selectedDay, setSelectedDay, timelineOpen, setTimelineOpen, googleApiKey, videoApiKey, updateDay } = useStore();
+  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
+
+  const toggleEvent = (eventId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  };
 
   const handleGenerateVideo = async (day: TimelineDay) => {
     const key = videoApiKey || googleApiKey;
@@ -174,61 +185,85 @@ export function Timeline() {
 
               {/* Events */}
               <div className="space-y-2">
-                {day.events.map((event, eventIndex) => (
+                {day.events.map((event, eventIndex) => {
+                  const isExpanded = expandedEvents.has(event.id);
+                  return (
                   <div
                     key={event.id}
-                    className={`bg-doom-dark/80 rounded-lg p-3 text-xs border border-doom-border/30 ${getDayBorderWidth(day.day)} ${severityBorder[event.severity]} transition-colors animate-fade-slide-in`}
+                    className={`bg-doom-dark/80 rounded-lg p-3 text-xs border border-doom-border/30 ${getDayBorderWidth(day.day)} ${severityBorder[event.severity]} transition-colors animate-fade-slide-in cursor-pointer`}
                     style={{ animationDelay: `${eventIndex * 50}ms` }}
+                    onClick={(e) => toggleEvent(event.id, e)}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5">
                         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${severityDot[event.severity]}`} />
                         <span className="font-semibold text-doom-text">
                           {event.title}
                         </span>
                       </div>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 font-mono ${severityBadge[event.severity]}`}
-                      >
-                        {event.severity}
-                      </span>
-                    </div>
-                    <p className="text-doom-text-muted leading-relaxed">
-                      {event.description}
-                    </p>
-                    <div className="mt-2 flex items-center gap-1 text-doom-text-faint">
-                      <span className="text-[10px]">&#x1f4cd;</span>
-                      <span className="text-[11px] font-mono">{event.location.name}</span>
-                    </div>
-                    {event.actors.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {event.actors.map((a) => (
-                          a.sources && a.sources.length > 0 ? (
-                            <a
-                              key={a.name}
-                              href={a.sources[0].url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              title={`${a.sources.length} source(s): ${a.sources.map(s => s.title).join(', ')}`}
-                              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] border hover:brightness-125 transition-all ${actorTypeStyle[a.type] || 'bg-doom-surface text-doom-text-muted border-doom-border/30'}`}
-                            >
-                              {a.name}
-                              <span className="text-[8px] opacity-60">🔗</span>
-                            </a>
-                          ) : (
-                            <span
-                              key={a.name}
-                              className={`rounded px-1.5 py-0.5 text-[10px] border ${actorTypeStyle[a.type] || 'bg-doom-surface text-doom-text-muted border-doom-border/30'}`}
-                            >
-                              {a.name}
-                            </span>
-                          )
-                        ))}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase font-mono ${severityBadge[event.severity]}`}
+                        >
+                          {event.severity}
+                        </span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`text-doom-text-faint transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
                       </div>
+                    </div>
+                    {isExpanded && (
+                      <>
+                        <p className="text-doom-text-muted leading-relaxed mt-1.5">
+                          {event.description}
+                        </p>
+                        <div className="mt-2 flex items-center gap-1 text-doom-text-faint">
+                          <span className="text-[10px]">&#x1f4cd;</span>
+                          <span className="text-[11px] font-mono">{event.location.name}</span>
+                        </div>
+                        {event.actors.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {event.actors.map((a) => (
+                              a.sources && a.sources.length > 0 ? (
+                                <a
+                                  key={a.name}
+                                  href={a.sources[0].url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  title={`${a.sources.length} source(s): ${a.sources.map(s => s.title).join(', ')}`}
+                                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] border hover:brightness-125 transition-all ${actorTypeStyle[a.type] || 'bg-doom-surface text-doom-text-muted border-doom-border/30'}`}
+                                >
+                                  {a.name}
+                                  <span className="text-[8px] opacity-60">🔗</span>
+                                </a>
+                              ) : (
+                                <span
+                                  key={a.name}
+                                  className={`rounded px-1.5 py-0.5 text-[10px] border ${actorTypeStyle[a.type] || 'bg-doom-surface text-doom-text-muted border-doom-border/30'}`}
+                                >
+                                  {a.name}
+                                </span>
+                              )
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Video section */}
