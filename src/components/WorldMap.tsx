@@ -116,7 +116,10 @@ export function WorldMap() {
   );
 
   return (
-    <div ref={containerRef} className="flex-1 relative min-w-0 h-full overflow-hidden">
+    <div
+      ref={containerRef}
+      className="flex-1 relative min-w-0 h-full overflow-hidden"
+    >
       {dims.width > 0 && (
         <Globe
           ref={globeRef}
@@ -144,7 +147,7 @@ export function WorldMap() {
         className="absolute inset-0 pointer-events-none z-[400]"
         style={{
           background:
-            'radial-gradient(ellipse at center, transparent 60%, rgba(10,10,15,0.3) 100%)',
+            "radial-gradient(ellipse at center, transparent 60%, rgba(10,10,15,0.3) 100%)",
         }}
       />
 
@@ -155,20 +158,20 @@ export function WorldMap() {
             onClick={() => setSelectedDay(null)}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
               selectedDay === null
-                ? 'bg-doom-red text-white shadow-[0_0_15px_rgba(255,45,45,0.3)]'
-                : 'text-gray-400 hover:text-white hover:bg-doom-surface'
+                ? "bg-doom-red text-white shadow-[0_0_15px_rgba(255,45,45,0.3)]"
+                : "text-gray-400 hover:text-white hover:bg-doom-surface"
             }`}
           >
             All
           </button>
-          {simulation.days.map((d) => (
+          {simulation.days.map(d => (
             <button
               key={d.day}
               onClick={() => setSelectedDay(d.day)}
               className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                 selectedDay === d.day
-                  ? 'bg-doom-red text-white shadow-[0_0_15px_rgba(255,45,45,0.3)]'
-                  : 'text-gray-400 hover:text-white hover:bg-doom-surface'
+                  ? "bg-doom-red text-white shadow-[0_0_15px_rgba(255,45,45,0.3)]"
+                  : "text-gray-400 hover:text-white hover:bg-doom-surface"
               }`}
             >
               D{d.day}
@@ -181,11 +184,10 @@ export function WorldMap() {
       {(!simulation || simulation.days.length === 0) && (
         <div className="absolute inset-0 flex items-center justify-center z-[500] pointer-events-none">
           <div className="text-center">
-            <div className="text-6xl mb-4 opacity-20">🌍</div>
             <p className="text-gray-600 text-sm uppercase tracking-[0.2em]">
-              {simulation?.status === 'generating'
-                ? 'Generating events...'
-                : 'Awaiting scenario'}
+              {simulation?.status === "generating"
+                ? "Generating events..."
+                : "Awaiting scenario"}
             </p>
           </div>
         </div>
