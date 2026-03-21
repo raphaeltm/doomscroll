@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { runGeminiSimulation } from '../api/gemini';
 import { generateVideo } from '../api/video';
+import { buildVideoPrompt } from '../api/videoPrompt';
 
 const exampleScenarios = [
   "A massive cyberattack disables power grids across three NATO countries",
@@ -24,6 +25,7 @@ export function Sidebar() {
     setSimulation,
     updateSimulation,
     addDay,
+    updateDay,
     sidebarOpen,
     setSidebarOpen,
     generationStatus,
@@ -50,8 +52,22 @@ export function Sidebar() {
     });
 
     try {
+      const videoKey = videoApiKey || googleApiKey;
       const result = await runGeminiSimulation(googleApiKey, prompt, {
-        onDayGenerated: (day) => addDay(day),
+        onDayGenerated: (day) => {
+          addDay(day);
+          // Auto-trigger video generation for each day
+          if (videoKey && day.videoPrompt) {
+            const cleanPrompt = buildVideoPrompt(day);
+            updateDay(day.day, { videoGenerating: true });
+            generateVideo(videoKey, cleanPrompt)
+              .then((videoUrl) => updateDay(day.day, { videoUrl, videoGenerating: false }))
+              .catch((err) => {
+                console.error(`Video generation failed for day ${day.day}:`, err);
+                updateDay(day.day, { videoGenerating: false });
+              });
+          }
+        },
         onStatusChange: (status) => setGenerationStatus(status),
       });
       updateSimulation({
