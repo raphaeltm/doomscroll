@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useStore } from '../store';
 import type { Actor } from '../types';
 
@@ -50,6 +51,31 @@ function getDayBgTint(day: number): string {
   return 'bg-red-950/15';
 }
 
+const SUMMARY_TRUNCATE = 120;
+
+function WeekSummary({ text }: { text: string }) {
+  const needsTruncation = text.length > SUMMARY_TRUNCATE;
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="px-5 py-3 border-b border-doom-border bg-doom-surface/30">
+      <p className="text-xs text-doom-text-muted leading-relaxed italic">
+        {needsTruncation && !expanded
+          ? text.slice(0, SUMMARY_TRUNCATE).trimEnd() + '…'
+          : text}
+      </p>
+      {needsTruncation && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-[10px] text-doom-text-faint hover:text-doom-text mt-1 transition-colors focus:outline-none"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function Timeline() {
   const { simulation, selectedDay, setSelectedDay, timelineOpen, setTimelineOpen } = useStore();
 
@@ -92,14 +118,8 @@ export function Timeline() {
         </p>
       </div>
 
-      {/* Week summary */}
-      {simulation.weekSummary && (
-        <div className="px-5 py-3 border-b border-doom-border bg-doom-surface/30">
-          <p className="text-xs text-doom-text-muted leading-relaxed italic">
-            {simulation.weekSummary}
-          </p>
-        </div>
-      )}
+      {/* Week summary — collapsible */}
+      {simulation.weekSummary && <WeekSummary text={simulation.weekSummary} />}
 
       {/* Timeline */}
       <div className="flex-1 overflow-y-auto">
