@@ -17,12 +17,13 @@ vi.mock('react-globe.gl', () => ({
 
 describe('WorldMap', () => {
   beforeEach(() => {
-    useStore.setState({ simulation: null, selectedDay: null });
+    useStore.setState({ simulation: null, selectedDay: null, timelineOpen: true });
   });
 
   it('renders empty state when no simulation', () => {
     render(<WorldMap />);
-    expect(screen.getByText('Awaiting scenario')).toBeInTheDocument();
+    expect(screen.getByText('DOOMSCROLL')).toBeInTheDocument();
+    expect(screen.getByText('Enter a scenario to begin')).toBeInTheDocument();
   });
 
   it('shows generating state', () => {
@@ -36,7 +37,7 @@ describe('WorldMap', () => {
       },
     });
     render(<WorldMap />);
-    expect(screen.getByText('Generating events...')).toBeInTheDocument();
+    expect(screen.getByText('Generating Day 1 of 7...')).toBeInTheDocument();
   });
 
   it('renders day selector when simulation has days', () => {

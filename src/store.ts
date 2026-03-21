@@ -3,10 +3,8 @@ import type { Simulation, TimelineDay } from './types';
 
 interface AppState {
   // API Keys
-  claudeApiKey: string;
   googleApiKey: string;
   videoApiKey: string;
-  setClaudeApiKey: (key: string) => void;
   setGoogleApiKey: (key: string) => void;
   setVideoApiKey: (key: string) => void;
 
@@ -22,16 +20,15 @@ interface AppState {
   setSelectedDay: (day: number | null) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  timelineOpen: boolean;
+  setTimelineOpen: (open: boolean) => void;
+  generationStatus: string;
+  setGenerationStatus: (status: string) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
-  claudeApiKey: localStorage.getItem('claudeApiKey') ?? '',
   googleApiKey: localStorage.getItem('googleApiKey') ?? '',
   videoApiKey: localStorage.getItem('videoApiKey') ?? '',
-  setClaudeApiKey: (key) => {
-    localStorage.setItem('claudeApiKey', key);
-    set({ claudeApiKey: key });
-  },
   setGoogleApiKey: (key) => {
     localStorage.setItem('googleApiKey', key);
     set({ googleApiKey: key });
@@ -71,4 +68,13 @@ export const useStore = create<AppState>((set) => ({
   setSelectedDay: (day) => set({ selectedDay: day }),
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  timelineOpen: true,
+  setTimelineOpen: (open) => set({ timelineOpen: open }),
+  generationStatus: '',
+  setGenerationStatus: (status) => set({ generationStatus: status }),
 }));
+
+// Expose store for E2E testing (dev only)
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__store = useStore;
+}

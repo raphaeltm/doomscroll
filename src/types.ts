@@ -4,10 +4,16 @@ export interface GeoLocation {
   name: string;
 }
 
+export interface Source {
+  title: string;
+  url: string;
+}
+
 export interface Actor {
   name: string;
   type: 'state' | 'organization' | 'individual' | 'military' | 'media';
   description: string;
+  sources?: Source[];
 }
 
 export interface TimelineEvent {
@@ -37,4 +43,27 @@ export interface Simulation {
   weekSummary?: string;
   status: 'idle' | 'generating' | 'complete' | 'error';
   error?: string;
+}
+
+// --- Real-world context types ---
+
+export interface GDELTEvent {
+  title: string;
+  url: string;
+  domain: string;
+  lat: number;
+  lng: number;
+  locationName: string;
+  tone: number;
+}
+
+export interface WikidataActor {
+  name: string;
+  position: string;
+  country: string;
+}
+
+export interface RealWorldContext {
+  gdeltEvents: GDELTEvent[];
+  actors: WikidataActor[];
 }
