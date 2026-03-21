@@ -1,17 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
-import type { Actor, TimelineDay, TimelineEvent, RealWorldContext } from '../types';
+import type { Actor, Source, TimelineDay, TimelineEvent, RealWorldContext } from '../types';
 import { fetchRealWorldContext } from './sources';
 
 const FAST_MODEL = 'gemini-2.5-flash';
 const DETAIL_MODEL = 'gemini-2.5-pro';
 
 // --- Zod schemas for structured output ---
-
-const sourceSchema = z.object({
-  title: z.string(),
-  url: z.string(),
-});
 
 const actorSchema = z.object({
   name: z.string(),
@@ -34,7 +29,6 @@ const actionSchema = z.object({
   }),
   actors: z.array(actorSchema),
   severity: z.enum(['low', 'medium', 'high', 'critical']),
-  sources: z.array(sourceSchema),
 });
 
 const dayResponseSchema = z.object({
@@ -97,28 +91,6 @@ function buildContextBlock(context: RealWorldContext): string {
   return '\n\n' + parts.join('\n');
 }
 
-// --- Step 0: Research via Google Search grounding ---
-
-async function researchScenario(
-  ai: GoogleGenAI,
-  prompt: string,
-): Promise<string> {
-  try {
-    const response = await ai.models.generateContent({
-      model: FAST_MODEL,
-      contents: `Research the current real-world context for this geopolitical scenario. Focus on: recent related events, key actors currently in power, ongoing tensions, and relevant background. Be factual and cite specific details.\n\nScenario: ${prompt}`,
-      config: {
-        systemInstruction: 'You are a geopolitical research assistant. Provide factual, well-sourced research on current events and actors relevant to the scenario. Include specific names, dates, and details.',
-        tools: [{ googleSearch: {} }],
-      },
-    });
-    return response.text ?? '';
-  } catch {
-    // Google Search grounding may fail — continue without it
-    return '';
-  }
-}
-
 // --- Step 1: Identify actors ---
 
 async function identifyActors(
@@ -136,6 +108,58 @@ async function identifyActors(
   return result.actors;
 }
 
+// --- Step 1b: Research actors via Google Search ---
+
+async function researchActor(
+  ai: GoogleGenAI,
+  actor: Actor,
+  scenario: string,
+): Promise<Source[]> {
+  try {
+    const response = await ai.models.generateContent({
+      model: FAST_MODEL,
+      contents: `Research "${actor.name}" in the context of: ${scenario}\n\nProvide a brief factual summary of who they are, their current role, and any recent relevant actions or statements. Focus on verified facts only.`,
+      config: {
+        systemInstruction: 'You are a factual research assistant. Provide only verified, real-world information about this actor/entity. Be concise.',
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    // Extract grounding sources from the response metadata
+    const sources: Source[] = [];
+    const metadata = response.candidates?.[0]?.groundingMetadata;
+    if (metadata?.groundingChunks) {
+      for (const chunk of metadata.groundingChunks) {
+        if (chunk.web?.uri && chunk.web?.title) {
+          sources.push({ title: chunk.web.title, url: chunk.web.uri });
+        }
+      }
+    }
+    return sources;
+  } catch {
+    return [];
+  }
+}
+
+async function enrichActorsWithSources(
+  ai: GoogleGenAI,
+  actors: Actor[],
+  scenario: string,
+  onStatusChange?: (status: string) => void,
+): Promise<Actor[]> {
+  onStatusChange?.('Researching actors...');
+
+  // Research all actors in parallel
+  const sourceResults = await Promise.all(
+    actors.map((actor) => researchActor(ai, actor, scenario)),
+  );
+
+  return actors.map((actor, i) => ({
+    ...actor,
+    sources: sourceResults[i],
+  }));
+}
+
 // --- Step 2: Generate day actions + summary ---
 
 function buildPreviousDaysContext(previousDays: TimelineDay[]): string {
@@ -148,6 +172,17 @@ function buildPreviousDaysContext(previousDays: TimelineDay[]): string {
     .join('\n\n');
 }
 
+function buildActorContext(actors: Actor[]): string {
+  return actors
+    .map((a) => {
+      const srcInfo = a.sources?.length
+        ? ` [${a.sources.length} source(s)]`
+        : '';
+      return `${a.name} (${a.type}): ${a.description}${srcInfo}`;
+    })
+    .join('\n');
+}
+
 async function generateDay(
   ai: GoogleGenAI,
   prompt: string,
@@ -156,9 +191,7 @@ async function generateDay(
   dayNumber: number,
   contextBlock: string,
 ): Promise<{ day: TimelineDay; updatedActors: Actor[] }> {
-  const actorList = actors
-    .map((a) => `${a.name} (${a.type}): ${a.description}`)
-    .join('\n');
+  const actorList = buildActorContext(actors);
   const prevContext = buildPreviousDaysContext(previousDays);
 
   const result = await callGemini(
@@ -166,15 +199,32 @@ async function generateDay(
     DETAIL_MODEL,
     `You are a geopolitical simulation engine. Generate realistic events for a single day in a crisis scenario. Each event must have precise GPS coordinates (lat/lng) for real locations. Include 3-5 events across different locations. Escalate tension naturally based on previous days. Also update the actor list — add new actors that emerge, update descriptions for existing ones, and keep actors that are still relevant.
 
-IMPORTANT: Use REAL names of current world leaders, real organizations, and real locations based on the provided context. For each event, include a "sources" array with 1-2 relevant source references (title and URL) from the real-world context provided or from your knowledge of real news sources. If referencing real events, cite the actual source.`,
-    `Scenario: ${prompt}\n\nActive actors:\n${actorList}\n\nPrevious days:\n${prevContext}${contextBlock}\n\nGenerate Day ${dayNumber} of 7. Provide events with sources, a day summary, a cinematic video prompt, and an updated actor list.`,
+Use REAL names of current world leaders, real organizations, and real locations based on the provided context.`,
+    `Scenario: ${prompt}\n\nActive actors:\n${actorList}\n\nPrevious days:\n${prevContext}${contextBlock}\n\nGenerate Day ${dayNumber} of 7. Provide events, a day summary, a cinematic video prompt, and an updated actor list.`,
     dayResponseSchema,
   );
+
+  // Attach sources from known actors to event actors
+  const actorSourceMap = new Map<string, Source[]>();
+  for (const a of actors) {
+    if (a.sources?.length) {
+      actorSourceMap.set(a.name, a.sources);
+    }
+  }
 
   const events: TimelineEvent[] = result.events.map((e, i) => ({
     ...e,
     id: `day${dayNumber}-event${i + 1}`,
-    sources: e.sources || [],
+    actors: e.actors.map((a) => ({
+      ...a,
+      sources: actorSourceMap.get(a.name) ?? undefined,
+    })),
+  }));
+
+  // Carry sources forward to updated actors too
+  const updatedActors: Actor[] = result.updatedActors.map((a) => ({
+    ...a,
+    sources: actorSourceMap.get(a.name) ?? undefined,
   }));
 
   const day: TimelineDay = {
@@ -185,7 +235,7 @@ IMPORTANT: Use REAL names of current world leaders, real organizations, and real
     videoPrompt: result.videoPrompt,
   };
 
-  return { day, updatedActors: result.updatedActors };
+  return { day, updatedActors };
 }
 
 // --- Step 3: Week summary ---
@@ -222,22 +272,17 @@ export async function runGeminiSimulation(
 ): Promise<{ title: string; days: TimelineDay[]; weekSummary: string }> {
   const ai = new GoogleGenAI({ apiKey });
 
-  // Step 0: Fetch real-world context + research in parallel
+  // Step 0: Fetch real-world context (GDELT + Wikidata)
   callbacks?.onStatusChange?.('Fetching real-world data...');
-  const [realWorldContext, research] = await Promise.all([
-    fetchRealWorldContext(prompt),
-    researchScenario(ai, prompt),
-  ]);
-
-  // Build context block from pre-fetched data + research
-  let contextBlock = buildContextBlock(realWorldContext);
-  if (research) {
-    contextBlock += '\n\n=== GOOGLE SEARCH RESEARCH ===\n' + research;
-  }
+  const realWorldContext = await fetchRealWorldContext(prompt);
+  const contextBlock = buildContextBlock(realWorldContext);
 
   // Step 1: Identify actors (grounded in real data)
   callbacks?.onStatusChange?.('Identifying actors...');
   let actors = await identifyActors(ai, prompt, contextBlock);
+
+  // Step 1b: Research each actor via Google Search — attach real sources
+  actors = await enrichActorsWithSources(ai, actors, prompt, callbacks?.onStatusChange);
 
   // Step 2: Generate each day iteratively
   const days: TimelineDay[] = [];

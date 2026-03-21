@@ -163,30 +163,27 @@ export function Timeline() {
                     {event.actors.length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {event.actors.map((a) => (
-                          <span
-                            key={a.name}
-                            className={`rounded px-1.5 py-0.5 text-[10px] border ${actorTypeStyle[a.type] || 'bg-doom-surface text-doom-text-muted border-doom-border/30'}`}
-                          >
-                            {a.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {event.sources && event.sources.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {event.sources.map((src, i) => (
-                          <a
-                            key={i}
-                            href={src.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 rounded px-1.5 py-0.5 text-[9px] text-blue-400 hover:text-blue-300 border border-blue-500/20 transition-colors"
-                            title={src.title}
-                          >
-                            <span className="text-[8px]">🔗</span>
-                            {src.title.length > 30 ? src.title.slice(0, 30) + '...' : src.title}
-                          </a>
+                          a.sources && a.sources.length > 0 ? (
+                            <a
+                              key={a.name}
+                              href={a.sources[0].url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              title={`${a.sources.length} source(s): ${a.sources.map(s => s.title).join(', ')}`}
+                              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] border hover:brightness-125 transition-all ${actorTypeStyle[a.type] || 'bg-doom-surface text-doom-text-muted border-doom-border/30'}`}
+                            >
+                              {a.name}
+                              <span className="text-[8px] opacity-60">🔗</span>
+                            </a>
+                          ) : (
+                            <span
+                              key={a.name}
+                              className={`rounded px-1.5 py-0.5 text-[10px] border ${actorTypeStyle[a.type] || 'bg-doom-surface text-doom-text-muted border-doom-border/30'}`}
+                            >
+                              {a.name}
+                            </span>
+                          )
                         ))}
                       </div>
                     )}

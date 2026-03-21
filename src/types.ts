@@ -23,7 +23,6 @@ export interface TimelineEvent {
   location: GeoLocation;
   actors: Actor[];
   severity: 'low' | 'medium' | 'high' | 'critical';
-  sources: Source[];
 }
 
 export interface TimelineDay {
