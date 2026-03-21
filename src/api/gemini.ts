@@ -91,20 +91,37 @@ function buildContextBlock(context: RealWorldContext): string {
   return '\n\n' + parts.join('\n');
 }
 
-// --- Step 1: Identify actors ---
+// --- Step 1: Identify actors (with Google Search grounding) ---
 
 async function identifyActors(
   ai: GoogleGenAI,
   prompt: string,
   contextBlock: string,
 ): Promise<Actor[]> {
-  const result = await callGemini(
-    ai,
-    FAST_MODEL,
-    `You are a geopolitical analyst. Given a scenario and real-world context, identify the 4-8 key actors (states, organizations, military forces, media outlets, individuals) who would be most involved. Use REAL names of current leaders and organizations based on the provided context. Be specific and accurate.`,
-    `Identify the key geopolitical actors in this scenario:\n\n${prompt}${contextBlock}`,
-    actorsResponseSchema,
-  );
+  const today = new Date().toISOString().split('T')[0];
+  const systemPrompt = `You are a geopolitical analyst. Today's date is ${today}.
+
+You MUST use the real-world context data provided below (current leaders from Wikidata, recent news from GDELT) as your primary source of truth. Do NOT rely on your training data for current leadership positions — the provided context reflects the real world right now.
+
+Given a scenario and real-world context, identify the 4-8 key actors (states, organizations, military forces, media outlets, individuals) who would be most involved. Use REAL names of current leaders and organizations based on the provided context. Be specific and accurate.
+
+Respond with JSON matching this schema: { "actors": [{ "name": string, "type": "state"|"organization"|"individual"|"military"|"media", "description": string }] }`;
+
+  // Use raw generateContent with Google Search grounding (can't mix with structured output)
+  const response = await ai.models.generateContent({
+    model: FAST_MODEL,
+    contents: `Identify the key geopolitical actors in this scenario:\n\n${prompt}${contextBlock}`,
+    config: {
+      systemInstruction: systemPrompt,
+      tools: [{ googleSearch: {} }],
+    },
+  });
+
+  const text = response.text ?? '';
+  // Extract JSON from response (may be wrapped in markdown code fences)
+  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) ?? text.match(/(\{[\s\S]*\})/);
+  const json = jsonMatch ? jsonMatch[1].trim() : text.trim();
+  const result = actorsResponseSchema.parse(JSON.parse(json));
   return result.actors;
 }
 
@@ -197,7 +214,11 @@ async function generateDay(
   const result = await callGemini(
     ai,
     DETAIL_MODEL,
-    `You are a geopolitical simulation engine. Generate realistic events for a single day in a crisis scenario. Each event must have precise GPS coordinates (lat/lng) for real locations. Include 3-5 events across different locations. Escalate tension naturally based on previous days. Also update the actor list — add new actors that emerge, update descriptions for existing ones, and keep actors that are still relevant.
+    `You are a geopolitical simulation engine. Today's date is ${new Date().toISOString().split('T')[0]}.
+
+You MUST use the real-world context data provided below (current leaders from Wikidata, recent news from GDELT) as your primary source of truth. Do NOT rely on your training data for current leadership positions — the provided context reflects the real world right now.
+
+Generate realistic events for a single day in a crisis scenario. Each event must have precise GPS coordinates (lat/lng) for real locations. Include 3-5 events across different locations. Escalate tension naturally based on previous days. Also update the actor list — add new actors that emerge, update descriptions for existing ones, and keep actors that are still relevant.
 
 Use REAL names of current world leaders, real organizations, and real locations based on the provided context.`,
     `Scenario: ${prompt}\n\nActive actors:\n${actorList}\n\nPrevious days:\n${prevContext}${contextBlock}\n\nGenerate Day ${dayNumber} of 7. Provide events, a day summary, a cinematic video prompt, and an updated actor list.
