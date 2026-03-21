@@ -1,0 +1,15 @@
+import { Sidebar } from './components/Sidebar';
+import { WorldMap } from './components/WorldMap';
+import { Timeline } from './components/Timeline';
+
+function App() {
+  return (
+    <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
+      <Sidebar />
+      <WorldMap />
+      <Timeline />
+    </div>
+  );
+}
+
+export default App;
