@@ -10,20 +10,17 @@ beforeEach(() => {
 });
 
 describe('fetchGDELTEvents', () => {
-  it('returns events from GDELT GeoJSON response', async () => {
+  it('returns events from GDELT DOC API response', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () =>
         Promise.resolve({
-          features: [
+          articles: [
             {
-              geometry: { coordinates: [35.2, 31.7] },
-              properties: {
-                name: 'Tensions rise in region',
-                url: 'https://example.com/article1',
-                domain: 'example.com',
-                tone: -3.5,
-              },
+              title: 'Tensions rise in region',
+              url: 'https://example.com/article1',
+              domain: 'example.com',
+              sourcecountry: 'Israel',
             },
           ],
         }),
@@ -32,8 +29,8 @@ describe('fetchGDELTEvents', () => {
     const events = await fetchGDELTEvents('conflict in the middle east');
     expect(events).toHaveLength(1);
     expect(events[0].title).toBe('Tensions rise in region');
-    expect(events[0].lat).toBe(31.7);
-    expect(events[0].lng).toBe(35.2);
+    expect(events[0].locationName).toBe('Israel');
+    expect(events[0].url).toBe('https://example.com/article1');
   });
 
   it('returns empty array on fetch error', async () => {
@@ -89,7 +86,7 @@ describe('fetchRealWorldContext', () => {
     // First call: GDELT
     mockFetch.mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ features: [] }),
+      json: () => Promise.resolve({ articles: [] }),
     });
     // Second call: Wikidata
     mockFetch.mockResolvedValueOnce({
