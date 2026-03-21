@@ -130,7 +130,7 @@ export async function fetchGDELTEvents(scenario: string, ai?: GoogleGenAI): Prom
   if (!keywords) return [];
 
   // Use the DOC API (ArtList mode) — the GEO API endpoint has been removed
-  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(keywords)}&mode=ArtList&format=json&timespan=3d&maxrecords=50`;
+  const url = `/api/gdelt/doc?query=${encodeURIComponent(keywords)}&mode=ArtList&format=json&timespan=3d&maxrecords=50`;
 
   try {
     const res = await fetch(url);
