@@ -74,11 +74,17 @@ export function Sidebar() {
         },
         onStatusChange: (status) => setGenerationStatus(status),
       });
+      // Merge result days with in-progress video state from the store
+      const currentDays = useStore.getState().simulation?.days ?? [];
+      const mergedDays = result.days.map((rd) => {
+        const existing = currentDays.find((d) => d.day === rd.day);
+        return existing ? { ...rd, videoUrl: existing.videoUrl, videoGenerating: existing.videoGenerating, videoError: existing.videoError } : rd;
+      });
       updateSimulation({
         title: result.title,
         weekSummary: result.weekSummary,
         status: 'complete',
-        days: result.days,
+        days: mergedDays,
       });
       setGenerationStatus('');
 
