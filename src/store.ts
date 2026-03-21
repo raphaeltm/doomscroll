@@ -20,6 +20,8 @@ interface AppState {
   setSelectedDay: (day: number | null) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  timelineOpen: boolean;
+  setTimelineOpen: (open: boolean) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -64,4 +66,6 @@ export const useStore = create<AppState>((set) => ({
   setSelectedDay: (day) => set({ selectedDay: day }),
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  timelineOpen: true,
+  setTimelineOpen: (open) => set({ timelineOpen: open }),
 }));

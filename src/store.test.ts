@@ -9,6 +9,7 @@ describe('store', () => {
       simulation: null,
       selectedDay: null,
       sidebarOpen: true,
+      timelineOpen: true,
     });
   });
 
