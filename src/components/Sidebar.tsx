@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { runGeminiSimulation } from '../api/gemini';
+import { generateVideo } from '../api/video';
 
 const exampleScenarios = [
   "A massive cyberattack disables power grids across three NATO countries",
@@ -11,6 +12,9 @@ const exampleScenarios = [
 export function Sidebar() {
   const [prompt, setPrompt] = useState('');
   const [showApiKeys, setShowApiKeys] = useState(false);
+  const [showVideoTest, setShowVideoTest] = useState(false);
+  const [videoTestJson, setVideoTestJson] = useState('');
+  const [videoTestStatus, setVideoTestStatus] = useState('');
   const {
     googleApiKey,
     setGoogleApiKey,
@@ -226,6 +230,91 @@ export function Sidebar() {
             </div>
           )}
         </div>
+
+        {/* Video Test Panel — hidden under API keys */}
+        {showSettings && (
+          <div className="border-t border-doom-border pt-3">
+            <button
+              type="button"
+              onClick={() => setShowVideoTest(!showVideoTest)}
+              className="flex items-center justify-between w-full text-xs text-doom-text-faint hover:text-doom-text-muted transition-colors focus:outline-none"
+            >
+              <span className="font-medium">Test Video Gen</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={`transition-transform duration-200 ${showVideoTest ? 'rotate-180' : ''}`}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {showVideoTest && (
+              <div className="mt-2 space-y-2 animate-fade-slide-in">
+                <textarea
+                  value={videoTestJson}
+                  onChange={(e) => setVideoTestJson(e.target.value)}
+                  placeholder='{"title":"NATO summit...","description":"...","location":{"lat":50.85,"lng":4.35,"name":"Brussels"},...}'
+                  rows={5}
+                  className="w-full bg-doom-surface border border-doom-border rounded-lg px-3 py-2 text-[11px] text-doom-text placeholder-doom-text-faint focus:outline-none focus-visible:border-doom-red focus-visible:ring-1 focus-visible:ring-doom-red/30 transition-colors resize-none font-mono leading-relaxed"
+                />
+                <button
+                  onClick={async () => {
+                    const key = videoApiKey || googleApiKey;
+                    if (!key) {
+                      setVideoTestStatus('Error: Set an API key first');
+                      return;
+                    }
+                    let parsed;
+                    try {
+                      parsed = JSON.parse(videoTestJson);
+                    } catch {
+                      setVideoTestStatus('Error: Invalid JSON');
+                      return;
+                    }
+                    // Build prompt from event JSON (same as backend buildPrompt)
+                    const parts = [];
+                    parts.push(`Breaking news scene: ${parsed.title || 'A major geopolitical event unfolds'}.`);
+                    if (parsed.description) parts.push(parsed.description);
+                    if (parsed.location?.name) parts.push(`Set in ${parsed.location.name}.`);
+                    if (parsed.actors?.length) {
+                      const names = parsed.actors.map((a: { name?: string }) => a.name || a).join(', ');
+                      parts.push(`Key figures involved: ${names}.`);
+                    }
+                    if (parsed.scene) parts.push(parsed.scene);
+                    parts.push('Cinematic news footage style. No spoken dialogue or voiceover. Only ambient background sounds and dramatic music.');
+                    const prompt = parts.join(' ');
+
+                    setVideoTestStatus('Generating... (this takes ~1-2 min)');
+                    try {
+                      const url = await generateVideo(key, prompt);
+                      setVideoTestStatus(`Done! URL: ${url}`);
+                      window.open(url, '_blank');
+                    } catch (err) {
+                      setVideoTestStatus(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                    }
+                  }}
+                  disabled={videoTestStatus.startsWith('Generating')}
+                  className="w-full bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white text-xs py-2 rounded-lg transition-colors font-medium border border-doom-border/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {videoTestStatus.startsWith('Generating') ? 'Generating...' : 'Test Generate'}
+                </button>
+                {videoTestStatus && (
+                  <p className={`text-[10px] break-all ${videoTestStatus.startsWith('Error') ? 'text-red-400' : videoTestStatus.startsWith('Done') ? 'text-green-400' : 'text-doom-text-muted'}`}>
+                    {videoTestStatus}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer */}
