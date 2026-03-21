@@ -296,32 +296,29 @@ export function TestVideoFlow() {
                     <video 
                       ref={videoRef}
                       src={finalVideo} 
+                      controls
+                      muted
                       className="w-full bg-black aspect-video"
                       onPlay={() => audioRef.current?.play()}
                       onPause={() => audioRef.current?.pause()}
                       onSeeked={(e) => {
                         if (audioRef.current) audioRef.current.currentTime = e.currentTarget.currentTime;
                       }}
+                      onTimeUpdate={(e) => {
+                        const video = e.currentTarget;
+                        if (video.currentTime >= 10) {
+                          if (video.muted) video.muted = false;
+                        } else {
+                          if (!video.muted) video.muted = true;
+                        }
+                      }}
                     />
                     {finalAudio && (
-                      <div className="p-4 bg-gray-900/80 border-t border-gray-700">
-                        <span className="text-[9px] uppercase text-gray-500 font-bold block mb-2">Synchronized Reporter Voice</span>
+                      <div className="hidden">
                         <audio 
                           ref={audioRef}
                           src={finalAudio}
-                          className="w-full h-8"
-                          controls
                         />
-                        <div className="mt-2 flex items-center justify-between">
-                           <span className="text-[9px] text-gray-500 italic">Background Video: 40% vol | Voiceover: 100% vol</span>
-                           <input 
-                             type="range" 
-                             min="0" max="1" step="0.1" 
-                             defaultValue="0.4"
-                             onChange={(e) => { if (videoRef.current) videoRef.current.volume = parseFloat(e.target.value); }}
-                             className="w-24 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-doom-red"
-                           />
-                        </div>
                       </div>
                     )}
                   </div>
