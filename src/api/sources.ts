@@ -64,35 +64,35 @@ export async function fetchGDELTEvents(scenario: string): Promise<GDELTEvent[]> 
   const keywords = extractKeywords(scenario);
   if (!keywords) return [];
 
-  const url = `https://api.gdeltproject.org/api/v2/geo/geo?query=${encodeURIComponent(keywords)}&mode=PointData&format=GeoJSON&timespan=3d`;
+  // Use the DOC API (ArtList mode) — the GEO API endpoint has been removed
+  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(keywords)}&mode=ArtList&format=json&timespan=3d&maxrecords=50`;
 
   try {
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();
 
-    if (!data.features || !Array.isArray(data.features)) return [];
+    const articles = data.articles;
+    if (!Array.isArray(articles)) return [];
 
     // Take top 20 events, deduplicated by title
     const seen = new Set<string>();
     const events: GDELTEvent[] = [];
 
-    for (const feature of data.features) {
+    for (const article of articles) {
       if (events.length >= 20) break;
-      const props = feature.properties;
-      const title = props?.name || props?.title || '';
+      const title = article.title || '';
       if (!title || seen.has(title)) continue;
       seen.add(title);
 
-      const [lng, lat] = feature.geometry?.coordinates || [0, 0];
       events.push({
         title,
-        url: props?.url || props?.html || '',
-        domain: props?.domain || '',
-        lat,
-        lng,
-        locationName: props?.name || '',
-        tone: props?.tone || 0,
+        url: article.url || '',
+        domain: article.domain || '',
+        lat: 0,
+        lng: 0,
+        locationName: article.sourcecountry || '',
+        tone: 0,
       });
     }
     return events;
