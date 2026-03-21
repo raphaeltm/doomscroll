@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { generateSimulation } from '../api/claude';
+import { runGeminiSimulation } from '../api/gemini';
 
 export function Sidebar() {
   const [prompt, setPrompt] = useState('');
   const {
-    claudeApiKey,
-    setClaudeApiKey,
+    googleApiKey,
+    setGoogleApiKey,
     videoApiKey,
     setVideoApiKey,
     simulation,
@@ -18,7 +18,7 @@ export function Sidebar() {
   const isGenerating = simulation?.status === 'generating';
 
   const handleSubmit = async () => {
-    if (!claudeApiKey || !prompt.trim()) return;
+    if (!googleApiKey || !prompt.trim()) return;
 
     setSimulation({
       id: crypto.randomUUID(),
@@ -29,11 +29,12 @@ export function Sidebar() {
     });
 
     try {
-      const result = await generateSimulation(claudeApiKey, prompt, (day) => {
+      const result = await runGeminiSimulation(googleApiKey, prompt, (day) => {
         addDay(day);
       });
       updateSimulation({
         title: result.title,
+        weekSummary: result.weekSummary,
         status: 'complete',
         days: result.days,
       });
@@ -60,13 +61,13 @@ export function Sidebar() {
         {/* API Keys */}
         <div className="space-y-2">
           <label className="block text-xs text-gray-400 uppercase tracking-wide">
-            Claude API Key
+            Google AI API Key
           </label>
           <input
             type="password"
-            value={claudeApiKey}
-            onChange={(e) => setClaudeApiKey(e.target.value)}
-            placeholder="sk-ant-..."
+            value={googleApiKey}
+            onChange={(e) => setGoogleApiKey(e.target.value)}
+            placeholder="AIza..."
             className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
           />
         </div>
@@ -100,7 +101,7 @@ export function Sidebar() {
 
         <button
           onClick={handleSubmit}
-          disabled={isGenerating || !claudeApiKey || !prompt.trim()}
+          disabled={isGenerating || !googleApiKey || !prompt.trim()}
           className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-2 px-4 rounded transition-colors text-sm uppercase tracking-wide"
         >
           {isGenerating ? 'Simulating...' : 'Run Simulation'}

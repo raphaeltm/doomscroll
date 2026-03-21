@@ -34,6 +34,7 @@ export interface Simulation {
   prompt: string;
   title: string;
   days: TimelineDay[];
+  weekSummary?: string;
   status: 'idle' | 'generating' | 'complete' | 'error';
   error?: string;
 }
