@@ -10,7 +10,6 @@ const exampleScenarios = [
 
 export function Sidebar() {
   const [prompt, setPrompt] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
   const [showApiKeys, setShowApiKeys] = useState(false);
   const {
     googleApiKey,
@@ -23,6 +22,8 @@ export function Sidebar() {
     addDay,
     sidebarOpen,
     setSidebarOpen,
+    generationStatus,
+    setGenerationStatus,
   } = useStore();
 
   const isGenerating = simulation?.status === 'generating';
@@ -47,7 +48,7 @@ export function Sidebar() {
     try {
       const result = await runGeminiSimulation(googleApiKey, prompt, {
         onDayGenerated: (day) => addDay(day),
-        onStatusChange: (status) => setStatusMessage(status),
+        onStatusChange: (status) => setGenerationStatus(status),
       });
       updateSimulation({
         title: result.title,
@@ -55,13 +56,13 @@ export function Sidebar() {
         status: 'complete',
         days: result.days,
       });
-      setStatusMessage('');
+      setGenerationStatus('');
     } catch (err) {
       updateSimulation({
         status: 'error',
         error: err instanceof Error ? err.message : 'Unknown error',
       });
-      setStatusMessage('');
+      setGenerationStatus('');
     }
   };
 
@@ -150,11 +151,11 @@ export function Sidebar() {
         </button>
 
         {/* Status message */}
-        {isGenerating && statusMessage && (
+        {isGenerating && generationStatus && (
           <div className="flex items-center gap-2 bg-doom-surface rounded-lg px-3 py-2 border border-doom-border">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
             <span className="text-[10px] text-doom-text-muted uppercase tracking-widest">
-              {statusMessage}
+              {generationStatus}
             </span>
           </div>
         )}
