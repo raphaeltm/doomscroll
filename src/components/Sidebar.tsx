@@ -14,6 +14,8 @@ export function Sidebar() {
     setSimulation,
     updateSimulation,
     addDay,
+    generationStatus,
+    setGenerationStatus,
   } = useStore();
 
   const isGenerating = simulation?.status === 'generating';
@@ -30,9 +32,12 @@ export function Sidebar() {
     });
 
     try {
-      const result = await runGeminiSimulation(googleApiKey, prompt, (day) => {
-        addDay(day);
-      });
+      const result = await runGeminiSimulation(
+        googleApiKey,
+        prompt,
+        (day) => addDay(day),
+        (status) => setGenerationStatus(status),
+      );
       updateSimulation({
         title: result.title,
         weekSummary: result.weekSummary,
@@ -44,6 +49,8 @@ export function Sidebar() {
         status: 'error',
         error: err instanceof Error ? err.message : 'Unknown error',
       });
+    } finally {
+      setGenerationStatus(null);
     }
   };
 
@@ -144,7 +151,7 @@ export function Sidebar() {
           {isGenerating ? (
             <span className="flex items-center justify-center gap-2">
               <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Simulating...
+              {generationStatus ?? 'Simulating...'}
             </span>
           ) : (
             'Run Simulation'

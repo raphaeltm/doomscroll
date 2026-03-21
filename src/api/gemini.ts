@@ -157,15 +157,18 @@ export async function runGeminiSimulation(
   apiKey: string,
   prompt: string,
   onDayGenerated?: (day: TimelineDay, dayIndex: number) => void,
+  onStatusUpdate?: (status: string) => void,
 ): Promise<{ title: string; days: TimelineDay[]; weekSummary: string }> {
   const ai = new GoogleGenAI({ apiKey });
 
   // Step 1: Identify actors
+  onStatusUpdate?.('Identifying key actors...');
   let actors = await identifyActors(ai, prompt);
 
   // Step 2: Generate each day iteratively
   const days: TimelineDay[] = [];
   for (let dayNum = 1; dayNum <= 7; dayNum++) {
+    onStatusUpdate?.(`Generating Day ${dayNum} of 7...`);
     const { day, updatedActors } = await generateDay(
       ai,
       prompt,
@@ -179,6 +182,7 @@ export async function runGeminiSimulation(
   }
 
   // Step 3: Week summary
+  onStatusUpdate?.('Writing week summary...');
   const { title, summary } = await generateWeekSummary(ai, prompt, days);
 
   return { title, days, weekSummary: summary };

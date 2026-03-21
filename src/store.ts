@@ -22,6 +22,8 @@ interface AppState {
   setSelectedDay: (day: number | null) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  generationStatus: string | null;
+  setGenerationStatus: (status: string | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -71,4 +73,6 @@ export const useStore = create<AppState>((set) => ({
   setSelectedDay: (day) => set({ selectedDay: day }),
   sidebarOpen: true,
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  generationStatus: null,
+  setGenerationStatus: (status) => set({ generationStatus: status }),
 }));
