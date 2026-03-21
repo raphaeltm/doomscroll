@@ -26,7 +26,7 @@ describe('WorldMap', () => {
     expect(screen.getByText('Enter a scenario to begin')).toBeInTheDocument();
   });
 
-  it('shows generating state', () => {
+  it('hides hero empty state during generation', () => {
     useStore.setState({
       simulation: {
         id: '1',
@@ -37,7 +37,7 @@ describe('WorldMap', () => {
       },
     });
     render(<WorldMap />);
-    expect(screen.getByText('Generating Day 1 of 7...')).toBeInTheDocument();
+    expect(screen.queryByText('DOOMSCROLL')).not.toBeInTheDocument();
   });
 
   it('renders day selector when simulation has days', () => {
