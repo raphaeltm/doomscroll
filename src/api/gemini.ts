@@ -276,7 +276,7 @@ export async function runGeminiSimulation(
 
   // Step 0: Fetch real-world context (GDELT + Wikidata)
   callbacks?.onStatusChange?.('Fetching real-world data...');
-  const realWorldContext = await fetchRealWorldContext(prompt);
+  const realWorldContext = await fetchRealWorldContext(prompt, ai);
   const contextBlock = buildContextBlock(realWorldContext);
 
   // Step 1: Identify actors (grounded in real data)

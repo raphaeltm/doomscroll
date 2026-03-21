@@ -1,9 +1,54 @@
+import { GoogleGenAI } from '@google/genai';
+import { z } from 'zod';
 import type { GDELTEvent, WikidataActor, RealWorldContext } from '../types';
 
-// --- GDELT GEO 2.0 API ---
+const FAST_MODEL = 'gemini-2.5-flash';
+
+// --- Zod schemas for LLM extraction ---
+
+const keywordsSchema = z.object({
+  keywords: z.array(z.string()).describe('3-6 concise search keywords for finding relevant news articles'),
+});
+
+const countriesSchema = z.object({
+  countries: z.array(z.string()).describe('Standardized English country names relevant to the scenario'),
+});
+
+// --- LLM-powered extraction with fallback ---
+
+async function extractKeywordsWithLLM(ai: GoogleGenAI, scenario: string): Promise<string> {
+  const jsonSchema = z.toJSONSchema(keywordsSchema);
+  const response = await ai.models.generateContent({
+    model: FAST_MODEL,
+    contents: `Extract 3-6 concise search keywords from this geopolitical scenario for querying a news API. Focus on the most specific and distinctive terms (country names, leader names, organization names, event types). Return only the keywords.\n\nScenario: ${scenario}`,
+    config: {
+      systemInstruction: 'You extract search keywords from geopolitical scenarios. Return concise, specific terms that would find relevant news articles.',
+      responseMimeType: 'application/json',
+      responseJsonSchema: jsonSchema as Record<string, unknown>,
+    },
+  });
+  const result = keywordsSchema.parse(JSON.parse(response.text ?? ''));
+  return result.keywords.join(' ');
+}
+
+async function extractCountriesWithLLM(ai: GoogleGenAI, scenario: string): Promise<string[]> {
+  const jsonSchema = z.toJSONSchema(countriesSchema);
+  const response = await ai.models.generateContent({
+    model: FAST_MODEL,
+    contents: `Identify all countries and political entities relevant to this geopolitical scenario. Include directly mentioned countries AND implied ones (e.g. "NATO's eastern flank" implies Poland, Romania, Baltic states). Use standardized English country names.\n\nScenario: ${scenario}`,
+    config: {
+      systemInstruction: 'You identify countries relevant to geopolitical scenarios. Return standardized English country names only.',
+      responseMimeType: 'application/json',
+      responseJsonSchema: jsonSchema as Record<string, unknown>,
+    },
+  });
+  const result = countriesSchema.parse(JSON.parse(response.text ?? ''));
+  return result.countries;
+}
+
+// --- Fallback string-based extraction ---
 
 function extractKeywords(scenario: string): string {
-  // Extract meaningful words, skip common stop words
   const stopWords = new Set([
     'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
     'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
@@ -26,7 +71,6 @@ function extractKeywords(scenario: string): string {
     .split(/\s+/)
     .filter((w) => w.length > 2 && !stopWords.has(w));
 
-  // Take the top 5 most distinctive words
   return words.slice(0, 5).join(' ');
 }
 
@@ -60,8 +104,29 @@ function extractCountries(scenario: string): string[] {
   return found;
 }
 
-export async function fetchGDELTEvents(scenario: string): Promise<GDELTEvent[]> {
-  const keywords = extractKeywords(scenario);
+function mapCountryNamesToIds(countryNames: string[]): string[] {
+  const ids: string[] = [];
+  for (const name of countryNames) {
+    const lower = name.toLowerCase();
+    const id = COUNTRY_ENTITIES[lower];
+    if (id && !ids.includes(id)) {
+      ids.push(id);
+    }
+  }
+  return ids;
+}
+
+export async function fetchGDELTEvents(scenario: string, ai?: GoogleGenAI): Promise<GDELTEvent[]> {
+  let keywords: string;
+  if (ai) {
+    try {
+      keywords = await extractKeywordsWithLLM(ai, scenario);
+    } catch {
+      keywords = extractKeywords(scenario);
+    }
+  } else {
+    keywords = extractKeywords(scenario);
+  }
   if (!keywords) return [];
 
   // Use the DOC API (ArtList mode) — the GEO API endpoint has been removed
@@ -103,8 +168,22 @@ export async function fetchGDELTEvents(scenario: string): Promise<GDELTEvent[]> 
 
 // --- Wikidata SPARQL ---
 
-export async function fetchWikidataActors(scenario: string): Promise<WikidataActor[]> {
-  const countryIds = extractCountries(scenario);
+export async function fetchWikidataActors(scenario: string, ai?: GoogleGenAI): Promise<WikidataActor[]> {
+  let countryIds: string[];
+  if (ai) {
+    try {
+      const countryNames = await extractCountriesWithLLM(ai, scenario);
+      countryIds = mapCountryNamesToIds(countryNames);
+      // Fall back to string extraction if LLM returned no mappable countries
+      if (countryIds.length === 0) {
+        countryIds = extractCountries(scenario);
+      }
+    } catch {
+      countryIds = extractCountries(scenario);
+    }
+  } else {
+    countryIds = extractCountries(scenario);
+  }
   if (countryIds.length === 0) return [];
 
   const values = countryIds.map((id) => `wd:${id}`).join(' ');
@@ -160,10 +239,10 @@ export async function fetchWikidataActors(scenario: string): Promise<WikidataAct
 
 // --- Fetch all real-world context in parallel ---
 
-export async function fetchRealWorldContext(scenario: string): Promise<RealWorldContext> {
+export async function fetchRealWorldContext(scenario: string, ai?: GoogleGenAI): Promise<RealWorldContext> {
   const [gdeltEvents, actors] = await Promise.all([
-    fetchGDELTEvents(scenario),
-    fetchWikidataActors(scenario),
+    fetchGDELTEvents(scenario, ai),
+    fetchWikidataActors(scenario, ai),
   ]);
 
   return { gdeltEvents, actors };
