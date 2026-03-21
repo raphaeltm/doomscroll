@@ -124,10 +124,6 @@ export function WorldMap() {
     (d: object) => {
       const ev = d as TimelineEvent;
       const severityColor = severityColors[ev.severity] || severityColors.low;
-      const sourceCount = ev.sources?.length || 0;
-      const sourceInfo = sourceCount > 0
-        ? `<div style="margin-top:6px;font-size:10px;color:#60a5fa;">🔗 ${sourceCount} source${sourceCount > 1 ? 's' : ''}</div>`
-        : '';
       return `<div style="background:#14141e;border:1px solid #2a2a3a;border-left:3px solid ${severityColor};border-radius:8px;padding:12px;min-width:200px;max-width:280px;font-family:system-ui,sans-serif;">
         <strong style="font-size:13px;display:block;color:#c8c8d0;">${ev.title}</strong>
         <p style="color:#8888a0;margin:4px 0 0;font-size:11px;">${ev.location.name}</p>
@@ -135,10 +131,10 @@ export function WorldMap() {
         <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">
           ${ev.actors.map((a) => {
             const c = actorTypeColors[a.type] || '#8888a0';
-            return `<span style="background:${c}15;border:1px solid ${c}30;border-radius:4px;padding:2px 6px;font-size:10px;color:${c};">${a.name}</span>`;
+            const srcIcon = a.sources?.length ? ' 🔗' : '';
+            return `<span style="background:${c}15;border:1px solid ${c}30;border-radius:4px;padding:2px 6px;font-size:10px;color:${c};">${a.name}${srcIcon}</span>`;
           }).join('')}
         </div>
-        ${sourceInfo}
         <span style="display:inline-block;margin-top:8px;font-size:10px;font-weight:600;text-transform:uppercase;color:${severityColor};">${ev.severity}</span>
       </div>`;
     },
