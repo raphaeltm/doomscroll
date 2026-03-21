@@ -5,8 +5,14 @@ interface AppState {
   // API Keys
   googleApiKey: string;
   videoApiKey: string;
+  falApiKey: string;
   setGoogleApiKey: (key: string) => void;
   setVideoApiKey: (key: string) => void;
+  setFalApiKey: (key: string) => void;
+
+  // Intro video
+  introVideoUrl: string | null;
+  setIntroVideoUrl: (url: string | null) => void;
 
   // Simulation
   simulation: Simulation | null;
@@ -29,6 +35,7 @@ interface AppState {
 export const useStore = create<AppState>((set) => ({
   googleApiKey: localStorage.getItem('googleApiKey') ?? '',
   videoApiKey: localStorage.getItem('videoApiKey') ?? '',
+  falApiKey: localStorage.getItem('falApiKey') ?? '',
   setGoogleApiKey: (key) => {
     localStorage.setItem('googleApiKey', key);
     set({ googleApiKey: key });
@@ -37,6 +44,13 @@ export const useStore = create<AppState>((set) => ({
     localStorage.setItem('videoApiKey', key);
     set({ videoApiKey: key });
   },
+  setFalApiKey: (key) => {
+    localStorage.setItem('falApiKey', key);
+    set({ falApiKey: key });
+  },
+
+  introVideoUrl: null,
+  setIntroVideoUrl: (url) => set({ introVideoUrl: url }),
 
   simulation: null,
   setSimulation: (sim) => set({ simulation: sim }),

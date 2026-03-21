@@ -13,6 +13,7 @@
     "check": "eslint . && tsc -b && vitest run"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.9.4",
     "@google/genai": "^1.46.0",
     "@tailwindcss/vite": "^4.2.2",
     "react": "^19.2.4",

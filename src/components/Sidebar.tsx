@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useStore } from '../store';
 import { runGeminiSimulation } from '../api/gemini';
 import { generateVideo } from '../api/video';
+import { configureFal, uploadToFal, generateIntroVideo } from '../intro/fal';
 
 const exampleScenarios = [
   "A massive cyberattack disables power grids across three NATO countries",
@@ -15,11 +16,18 @@ export function Sidebar() {
   const [showVideoTest, setShowVideoTest] = useState(false);
   const [videoTestJson, setVideoTestJson] = useState('');
   const [videoTestStatus, setVideoTestStatus] = useState('');
+  const [introStatus, setIntroStatus] = useState('');
+  const [introPreview, setIntroPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     googleApiKey,
     setGoogleApiKey,
     videoApiKey,
     setVideoApiKey,
+    falApiKey,
+    setFalApiKey,
+    introVideoUrl,
+    setIntroVideoUrl,
     simulation,
     setSimulation,
     updateSimulation,
@@ -29,6 +37,27 @@ export function Sidebar() {
     generationStatus,
     setGenerationStatus,
   } = useStore();
+
+  const handleIntroGenerate = async (file: File) => {
+    if (!falApiKey) {
+      setIntroStatus('Error: Set FAL API key first');
+      return;
+    }
+    configureFal(falApiKey);
+    setIntroStatus('Uploading photo...');
+    setIntroPreview(URL.createObjectURL(file));
+    try {
+      const imageUrl = await uploadToFal(file);
+      setIntroStatus('Generating intro video... (this may take a minute)');
+      const videoUrl = await generateIntroVideo(imageUrl, (msg) => {
+        setIntroStatus(msg);
+      });
+      setIntroVideoUrl(videoUrl);
+      setIntroStatus('Done!');
+    } catch (err) {
+      setIntroStatus(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
 
   const isGenerating = simulation?.status === 'generating';
 
@@ -227,6 +256,20 @@ export function Sidebar() {
                   className="w-full bg-doom-surface border border-doom-border rounded-lg px-3 py-2.5 text-sm text-doom-text placeholder-doom-text-faint focus:outline-none focus-visible:border-doom-red focus-visible:ring-1 focus-visible:ring-doom-red/30 transition-colors"
                 />
               </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs text-doom-text-muted font-medium">
+                  FAL API Key
+                  <span className="text-doom-text-faint ml-1">(for intro video)</span>
+                </label>
+                <input
+                  type="password"
+                  value={falApiKey}
+                  onChange={(e) => setFalApiKey(e.target.value)}
+                  placeholder="fal key..."
+                  className="w-full bg-doom-surface border border-doom-border rounded-lg px-3 py-2.5 text-sm text-doom-text placeholder-doom-text-faint focus:outline-none focus-visible:border-doom-red focus-visible:ring-1 focus-visible:ring-doom-red/30 transition-colors"
+                />
+              </div>
             </div>
           )}
         </div>
@@ -314,6 +357,43 @@ export function Sidebar() {
               </div>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Intro Video */}
+      <div className="px-5 pb-4 space-y-2 border-t border-doom-border pt-4">
+        <span className="text-xs text-doom-text-muted font-medium">Custom Intro</span>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleIntroGenerate(file);
+          }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={!falApiKey || introStatus.startsWith('Uploading') || introStatus.startsWith('Generating')}
+          className="w-full bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white text-xs py-2 rounded-lg transition-colors font-medium border border-doom-border/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {introStatus.startsWith('Uploading') || introStatus.startsWith('Generating')
+            ? introStatus
+            : introVideoUrl
+              ? 'Regenerate Intro'
+              : 'Upload Photo & Generate'}
+        </button>
+        {introPreview && !introVideoUrl && (
+          <img src={introPreview} alt="preview" className="w-full rounded-lg border border-doom-border" />
+        )}
+        {introVideoUrl && (
+          <video src={introVideoUrl} controls className="w-full rounded-lg border border-doom-border" />
+        )}
+        {introStatus && introStatus !== 'Done!' && !introStatus.startsWith('Uploading') && !introStatus.startsWith('Generating') && (
+          <p className={`text-[10px] break-all ${introStatus.startsWith('Error') ? 'text-red-400' : 'text-doom-text-muted'}`}>
+            {introStatus}
+          </p>
         )}
       </div>
 
