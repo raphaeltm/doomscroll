@@ -5,6 +5,7 @@ describe('store', () => {
   beforeEach(() => {
     useStore.setState({
       claudeApiKey: '',
+      googleApiKey: '',
       videoApiKey: '',
       simulation: null,
       selectedDay: null,

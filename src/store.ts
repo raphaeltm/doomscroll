@@ -4,8 +4,10 @@ import type { Simulation, TimelineDay } from './types';
 interface AppState {
   // API Keys
   claudeApiKey: string;
+  googleApiKey: string;
   videoApiKey: string;
   setClaudeApiKey: (key: string) => void;
+  setGoogleApiKey: (key: string) => void;
   setVideoApiKey: (key: string) => void;
 
   // Simulation
@@ -24,8 +26,10 @@ interface AppState {
 
 export const useStore = create<AppState>((set) => ({
   claudeApiKey: '',
+  googleApiKey: '',
   videoApiKey: '',
   setClaudeApiKey: (key) => set({ claudeApiKey: key }),
+  setGoogleApiKey: (key) => set({ googleApiKey: key }),
   setVideoApiKey: (key) => set({ videoApiKey: key }),
 
   simulation: null,
