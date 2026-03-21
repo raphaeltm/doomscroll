@@ -47,9 +47,9 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-80 bg-doom-panel border-r border-doom-border flex flex-col h-full overflow-y-auto shrink-0">
+    <div className="absolute top-4 left-4 z-[1000] w-80 max-h-[calc(100vh-2rem)] bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col overflow-y-auto shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
       {/* Header */}
-      <div className="p-5 border-b border-doom-border">
+      <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-doom-red glow-pulse" />
           <h1 className="text-2xl font-black tracking-[0.2em] text-doom-red uppercase">
@@ -72,7 +72,7 @@ export function Sidebar() {
             value={googleApiKey}
             onChange={(e) => setGoogleApiKey(e.target.value)}
             placeholder="AIza..."
-            className="w-full bg-doom-dark border border-doom-border rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-doom-red/50 focus:shadow-[0_0_15px_rgba(255,45,45,0.15)] transition-all"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-doom-red/50 focus:shadow-[0_0_15px_rgba(255,45,45,0.15)] transition-all"
           />
         </div>
 
@@ -86,12 +86,12 @@ export function Sidebar() {
             value={videoApiKey}
             onChange={(e) => setVideoApiKey(e.target.value)}
             placeholder="API key..."
-            className="w-full bg-doom-dark border border-doom-border rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-doom-red/50 focus:shadow-[0_0_15px_rgba(255,45,45,0.15)] transition-all"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-doom-red/50 focus:shadow-[0_0_15px_rgba(255,45,45,0.15)] transition-all"
           />
         </div>
 
         {/* Divider */}
-        <div className="border-t border-doom-border" />
+        <div className="border-t border-white/10" />
 
         {/* Scenario Input */}
         <div className="space-y-1.5">
@@ -103,14 +103,14 @@ export function Sidebar() {
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="A massive cyberattack disables power grids across three NATO countries simultaneously..."
             rows={8}
-            className="w-full bg-doom-dark border border-doom-border rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-doom-red/50 focus:shadow-[0_0_15px_rgba(255,45,45,0.15)] transition-all resize-none leading-relaxed"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-doom-red/50 focus:shadow-[0_0_15px_rgba(255,45,45,0.15)] transition-all resize-none leading-relaxed"
           />
         </div>
 
         <button
           onClick={handleSubmit}
           disabled={isGenerating || !googleApiKey || !prompt.trim()}
-          className="w-full bg-doom-red hover:bg-red-500 disabled:bg-doom-surface disabled:text-gray-600 disabled:border-doom-border text-white font-bold py-3 px-4 rounded-lg transition-all text-sm uppercase tracking-[0.15em] border border-red-500/30 shadow-[0_0_20px_rgba(255,45,45,0.2)] hover:shadow-[0_0_40px_rgba(255,45,45,0.4)] active:scale-[0.98] disabled:shadow-none disabled:border-doom-border"
+          className="w-full bg-doom-red hover:bg-red-500 disabled:bg-white/5 disabled:text-gray-600 disabled:border-white/10 text-white font-bold py-3 px-4 rounded-lg transition-all text-sm uppercase tracking-[0.15em] border border-red-500/30 shadow-[0_0_20px_rgba(255,45,45,0.2)] hover:shadow-[0_0_40px_rgba(255,45,45,0.4)] active:scale-[0.98] disabled:shadow-none"
         >
           {isGenerating ? (
             <span className="flex items-center justify-center gap-2">
@@ -130,7 +130,7 @@ export function Sidebar() {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-doom-border">
+      <div className="p-4 border-t border-white/10">
         <p className="text-[9px] text-gray-600 text-center uppercase tracking-widest">
           Hackathon Build • Temporary Keys Only
         </p>
