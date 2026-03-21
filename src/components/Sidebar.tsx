@@ -10,6 +10,7 @@ const exampleScenarios = [
 
 export function Sidebar() {
   const [prompt, setPrompt] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const [showApiKeys, setShowApiKeys] = useState(false);
   const {
     googleApiKey,
@@ -44,8 +45,9 @@ export function Sidebar() {
     });
 
     try {
-      const result = await runGeminiSimulation(googleApiKey, prompt, (day) => {
-        addDay(day);
+      const result = await runGeminiSimulation(googleApiKey, prompt, {
+        onDayGenerated: (day) => addDay(day),
+        onStatusChange: (status) => setStatusMessage(status),
       });
       updateSimulation({
         title: result.title,
@@ -53,11 +55,13 @@ export function Sidebar() {
         status: 'complete',
         days: result.days,
       });
+      setStatusMessage('');
     } catch (err) {
       updateSimulation({
         status: 'error',
         error: err instanceof Error ? err.message : 'Unknown error',
       });
+      setStatusMessage('');
     }
   };
 
@@ -145,6 +149,16 @@ export function Sidebar() {
           )}
         </button>
 
+        {/* Status message */}
+        {isGenerating && statusMessage && (
+          <div className="flex items-center gap-2 bg-doom-surface rounded-lg px-3 py-2 border border-doom-border">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+            <span className="text-[10px] text-doom-text-muted uppercase tracking-widest">
+              {statusMessage}
+            </span>
+          </div>
+        )}
+
         {simulation?.error && (
           <div className="bg-red-950/50 border border-red-900/50 rounded-lg p-3 text-sm text-red-400">
             {simulation.error}
@@ -216,7 +230,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-doom-border">
         <p className="text-xs text-doom-text-faint text-center">
-          Hackathon build — temporary keys only
+          Grounded in real data
         </p>
       </div>
     </div>

@@ -13,7 +13,6 @@
     "check": "eslint . && tsc -b && vitest run"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
     "@google/genai": "^1.46.0",
     "@tailwindcss/vite": "^4.2.2",
     "react": "^19.2.4",

@@ -3,10 +3,8 @@ import type { Simulation, TimelineDay } from './types';
 
 interface AppState {
   // API Keys
-  claudeApiKey: string;
   googleApiKey: string;
   videoApiKey: string;
-  setClaudeApiKey: (key: string) => void;
   setGoogleApiKey: (key: string) => void;
   setVideoApiKey: (key: string) => void;
 
@@ -27,13 +25,8 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
-  claudeApiKey: localStorage.getItem('claudeApiKey') ?? '',
   googleApiKey: localStorage.getItem('googleApiKey') ?? '',
   videoApiKey: localStorage.getItem('videoApiKey') ?? '',
-  setClaudeApiKey: (key) => {
-    localStorage.setItem('claudeApiKey', key);
-    set({ claudeApiKey: key });
-  },
   setGoogleApiKey: (key) => {
     localStorage.setItem('googleApiKey', key);
     set({ googleApiKey: key });
