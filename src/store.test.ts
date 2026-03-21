@@ -4,18 +4,12 @@ import { useStore } from './store';
 describe('store', () => {
   beforeEach(() => {
     useStore.setState({
-      claudeApiKey: '',
       googleApiKey: '',
       videoApiKey: '',
       simulation: null,
       selectedDay: null,
       sidebarOpen: true,
     });
-  });
-
-  it('sets API keys', () => {
-    useStore.getState().setClaudeApiKey('test-key');
-    expect(useStore.getState().claudeApiKey).toBe('test-key');
   });
 
   it('persists API keys to localStorage', () => {

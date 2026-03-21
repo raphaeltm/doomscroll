@@ -103,6 +103,10 @@ export function WorldMap() {
   const getPointLabel = useCallback(
     (d: object) => {
       const ev = d as TimelineEvent;
+      const sourceCount = ev.sources?.length || 0;
+      const sourceInfo = sourceCount > 0
+        ? `<div style="margin-top:6px;font-size:10px;color:#60a5fa;">🔗 ${sourceCount} source${sourceCount > 1 ? 's' : ''}</div>`
+        : '';
       return `<div style="background:#1a1a28;border:1px solid #2a2a3d;border-radius:12px;padding:12px;min-width:200px;box-shadow:0 0 30px rgba(255,45,45,0.15);font-family:Inter,system-ui,sans-serif;">
         <strong style="font-size:14px;display:block;color:#f3f4f6;">${ev.title}</strong>
         <p style="color:#9ca3af;margin:4px 0 0;font-size:11px;">${ev.location.name}</p>
@@ -110,6 +114,7 @@ export function WorldMap() {
         <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">
           ${ev.actors.map((a) => `<span style="background:#374151;border-radius:4px;padding:2px 8px;font-size:10px;color:#d1d5db;">${a.name}</span>`).join('')}
         </div>
+        ${sourceInfo}
       </div>`;
     },
     [],

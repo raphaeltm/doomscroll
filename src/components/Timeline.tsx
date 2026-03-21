@@ -135,6 +135,24 @@ export function Timeline() {
                         ))}
                       </div>
                     )}
+                    {event.sources && event.sources.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {event.sources.map((src, i) => (
+                          <a
+                            key={i}
+                            href={src.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 rounded px-1.5 py-0.5 text-[9px] text-blue-400 hover:text-blue-300 border border-blue-500/20 transition-colors"
+                            title={src.title}
+                          >
+                            <span className="text-[8px]">🔗</span>
+                            {src.title.length > 30 ? src.title.slice(0, 30) + '...' : src.title}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

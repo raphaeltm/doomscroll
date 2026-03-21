@@ -4,6 +4,7 @@ import { runGeminiSimulation } from '../api/gemini';
 
 export function Sidebar() {
   const [prompt, setPrompt] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const {
     googleApiKey,
     setGoogleApiKey,
@@ -29,8 +30,9 @@ export function Sidebar() {
     });
 
     try {
-      const result = await runGeminiSimulation(googleApiKey, prompt, (day) => {
-        addDay(day);
+      const result = await runGeminiSimulation(googleApiKey, prompt, {
+        onDayGenerated: (day) => addDay(day),
+        onStatusChange: (status) => setStatusMessage(status),
       });
       updateSimulation({
         title: result.title,
@@ -38,11 +40,13 @@ export function Sidebar() {
         status: 'complete',
         days: result.days,
       });
+      setStatusMessage('');
     } catch (err) {
       updateSimulation({
         status: 'error',
         error: err instanceof Error ? err.message : 'Unknown error',
       });
+      setStatusMessage('');
     }
   };
 
@@ -122,6 +126,16 @@ export function Sidebar() {
           )}
         </button>
 
+        {/* Status message */}
+        {isGenerating && statusMessage && (
+          <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 border border-white/10">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+            <span className="text-[10px] text-gray-400 uppercase tracking-widest">
+              {statusMessage}
+            </span>
+          </div>
+        )}
+
         {simulation?.error && (
           <div className="bg-red-950/50 border border-red-900/50 rounded-lg p-3 text-sm text-red-400">
             {simulation.error}
@@ -132,7 +146,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-white/10">
         <p className="text-[9px] text-gray-600 text-center uppercase tracking-widest">
-          Hackathon Build • Temporary Keys Only
+          Hackathon Build • Grounded in Real Data
         </p>
       </div>
     </div>
