@@ -200,7 +200,9 @@ async function generateDay(
     `You are a geopolitical simulation engine. Generate realistic events for a single day in a crisis scenario. Each event must have precise GPS coordinates (lat/lng) for real locations. Include 3-5 events across different locations. Escalate tension naturally based on previous days. Also update the actor list — add new actors that emerge, update descriptions for existing ones, and keep actors that are still relevant.
 
 Use REAL names of current world leaders, real organizations, and real locations based on the provided context.`,
-    `Scenario: ${prompt}\n\nActive actors:\n${actorList}\n\nPrevious days:\n${prevContext}${contextBlock}\n\nGenerate Day ${dayNumber} of 7. Provide events, a day summary, a cinematic video prompt, and an updated actor list.`,
+    `Scenario: ${prompt}\n\nActive actors:\n${actorList}\n\nPrevious days:\n${prevContext}${contextBlock}\n\nGenerate Day ${dayNumber} of 7. Provide events, a day summary, a cinematic video prompt, and an updated actor list.
+
+IMPORTANT for the videoPrompt field: The video prompt must be completely abstract and cinematic. Do NOT include any real names, titles, positions, organizations, countries, or identifying information. Instead use generic terms like "officials", "diplomats", "military personnel", "leaders", "figures in suits". Describe only the visual scene, mood, lighting, and atmosphere. Example: "A tense meeting in a dimly lit modern conference room, figures in dark suits around a long table, rain streaking down floor-to-ceiling windows, emergency red lighting reflecting off polished surfaces." The prompt should work as a standalone cinematic scene description with no real-world references.`,
     dayResponseSchema,
   );
 

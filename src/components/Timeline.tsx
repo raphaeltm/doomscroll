@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { generateVideo } from '../api/video';
-import type { Actor } from '../types';
+import { buildVideoPrompt } from '../api/videoPrompt';
+import type { Actor, TimelineDay } from '../types';
 
 const severityBadge: Record<string, string> = {
   low: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
@@ -80,19 +81,20 @@ function WeekSummary({ text }: { text: string }) {
 export function Timeline() {
   const { simulation, selectedDay, setSelectedDay, timelineOpen, setTimelineOpen, googleApiKey, videoApiKey, updateDay } = useStore();
 
-  const handleGenerateVideo = async (dayNumber: number, prompt: string) => {
+  const handleGenerateVideo = async (day: TimelineDay) => {
     const key = videoApiKey || googleApiKey;
     if (!key) {
       alert('Please set a Google API key (or Video API key) in the sidebar.');
       return;
     }
-    updateDay(dayNumber, { videoGenerating: true });
+    const cleanPrompt = buildVideoPrompt(day);
+    updateDay(day.day, { videoGenerating: true });
     try {
-      const videoUrl = await generateVideo(key, prompt);
-      updateDay(dayNumber, { videoUrl, videoGenerating: false });
+      const videoUrl = await generateVideo(key, cleanPrompt);
+      updateDay(day.day, { videoUrl, videoGenerating: false });
     } catch (err) {
       console.error('Video generation failed:', err);
-      updateDay(dayNumber, { videoGenerating: false });
+      updateDay(day.day, { videoGenerating: false });
       alert(`Video generation failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
@@ -229,39 +231,40 @@ export function Timeline() {
                 ))}
               </div>
 
-              {/* Video prompt */}
-              {day.videoPrompt && (
+              {/* Video section */}
+              {day.videoUrl ? (
                 <div className="mt-3 bg-doom-dark/50 rounded-lg p-3 border border-doom-border/30">
                   <div className="text-[10px] uppercase tracking-wider text-doom-text-faint mb-1.5 font-medium font-mono">
-                    Video Prompt
+                    Day {day.day} footage
                   </div>
-                  <p className="text-xs text-doom-text-muted leading-relaxed italic">
-                    "{day.videoPrompt}"
-                  </p>
-                  {day.videoUrl ? (
-                    <video
-                      src={day.videoUrl}
-                      controls
-                      className="mt-2 w-full rounded-lg"
-                    />
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!day.videoGenerating) {
-                          handleGenerateVideo(day.day, day.videoPrompt!);
-                        }
-                      }}
-                      disabled={day.videoGenerating}
-                      className="mt-2 w-full bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white text-xs py-2 rounded-lg transition-colors font-medium border border-doom-border/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {day.videoGenerating
-                        ? 'Generating...'
-                        : 'Generate Video'}
-                    </button>
-                  )}
+                  <video
+                    src={day.videoUrl}
+                    controls
+                    className="w-full rounded-lg"
+                  />
                 </div>
-              )}
+              ) : day.videoGenerating ? (
+                <div className="mt-3 bg-doom-dark/50 rounded-lg p-3 border border-doom-border/30">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 border-2 border-doom-text-faint/30 border-t-doom-red rounded-full animate-spin" />
+                    <span className="text-xs text-doom-text-muted">
+                      Generating video...
+                    </span>
+                  </div>
+                </div>
+              ) : day.videoPrompt ? (
+                <div className="mt-3 bg-doom-dark/50 rounded-lg p-3 border border-doom-border/30">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleGenerateVideo(day);
+                    }}
+                    className="w-full bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white text-xs py-2 rounded-lg transition-colors font-medium border border-doom-border/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50"
+                  >
+                    Generate Video
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         ))}
