@@ -8,7 +8,7 @@ const severityColors: Record<string, string> = {
   low: '#3b82f6',
   medium: '#f59e0b',
   high: '#ef4444',
-  critical: '#ff2d2d',
+  critical: '#e53e3e',
 };
 
 const severityRadius: Record<string, number> = {
@@ -25,8 +25,15 @@ const severityAltitude: Record<string, number> = {
   critical: 0.05,
 };
 
+function getAtmosphereColor(selectedDay: number | null): string {
+  if (selectedDay === null) return '#3b82f6';
+  if (selectedDay <= 2) return '#3b82f6';
+  if (selectedDay <= 4) return '#f59e0b';
+  return '#e53e3e';
+}
+
 export function WorldMap() {
-  const { simulation, selectedDay, setSelectedDay } = useStore();
+  const { simulation, selectedDay, setSelectedDay, timelineOpen, setTimelineOpen } = useStore();
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ width: 0, height: 0 });
@@ -41,6 +48,11 @@ export function WorldMap() {
     }
     return result;
   }, [simulation, selectedDay]);
+
+  const atmosphereColor = useMemo(
+    () => getAtmosphereColor(simulation?.days.length ? selectedDay : null),
+    [selectedDay, simulation?.days.length],
+  );
 
   // Responsive sizing
   useEffect(() => {
@@ -100,25 +112,41 @@ export function WorldMap() {
     (d: object) => severityAltitude[(d as TimelineEvent).severity] || severityAltitude.low,
     [],
   );
+  const actorTypeColors: Record<string, string> = {
+    state: '#818cf8',
+    military: '#94a3b8',
+    organization: '#2dd4bf',
+    individual: '#fbbf24',
+    media: '#a78bfa',
+  };
+
   const getPointLabel = useCallback(
     (d: object) => {
       const ev = d as TimelineEvent;
-      return `<div style="background:#1a1a28;border:1px solid #2a2a3d;border-radius:12px;padding:12px;min-width:200px;box-shadow:0 0 30px rgba(255,45,45,0.15);font-family:Inter,system-ui,sans-serif;">
-        <strong style="font-size:14px;display:block;color:#f3f4f6;">${ev.title}</strong>
-        <p style="color:#9ca3af;margin:4px 0 0;font-size:11px;">${ev.location.name}</p>
-        <p style="color:#d1d5db;margin:8px 0 0;font-size:13px;">${ev.description}</p>
+      const severityColor = severityColors[ev.severity] || severityColors.low;
+      return `<div style="background:#14141e;border:1px solid #2a2a3a;border-left:3px solid ${severityColor};border-radius:8px;padding:12px;min-width:200px;max-width:280px;font-family:system-ui,sans-serif;">
+        <strong style="font-size:13px;display:block;color:#c8c8d0;">${ev.title}</strong>
+        <p style="color:#8888a0;margin:4px 0 0;font-size:11px;">${ev.location.name}</p>
+        <p style="color:#c8c8d0;margin:8px 0 0;font-size:12px;line-height:1.5;">${ev.description}</p>
         <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">
-          ${ev.actors.map((a) => `<span style="background:#374151;border-radius:4px;padding:2px 8px;font-size:10px;color:#d1d5db;">${a.name}</span>`).join('')}
+          ${ev.actors.map((a) => {
+            const c = actorTypeColors[a.type] || '#8888a0';
+            return `<span style="background:${c}15;border:1px solid ${c}30;border-radius:4px;padding:2px 6px;font-size:10px;color:${c};">${a.name}</span>`;
+          }).join('')}
         </div>
+        <span style="display:inline-block;margin-top:8px;font-size:10px;font-weight:600;text-transform:uppercase;color:${severityColor};">${ev.severity}</span>
       </div>`;
     },
     [],
   );
 
+  const isGenerating = simulation?.status === 'generating';
+  const daysGenerated = simulation?.days.length ?? 0;
+
   return (
     <div
       ref={containerRef}
-      className="flex-1 relative min-w-0 h-full overflow-hidden"
+      className="absolute inset-0 overflow-hidden"
     >
       {dims.width > 0 && (
         <Globe
@@ -127,8 +155,8 @@ export function WorldMap() {
           height={dims.height}
           globeImageUrl="https://unpkg.com/three-globe/example/img/earth-night.jpg"
           backgroundColor="rgba(0,0,0,0)"
-          atmosphereColor="#ff2d2d"
-          atmosphereAltitude={0.15}
+          atmosphereColor={atmosphereColor}
+          atmosphereAltitude={0.12}
           animateIn={true}
           pointsData={events}
           pointLat={(d: object) => (d as TimelineEvent).location.lat}
@@ -147,19 +175,19 @@ export function WorldMap() {
         className="absolute inset-0 pointer-events-none z-[400]"
         style={{
           background:
-            "radial-gradient(ellipse at center, transparent 60%, rgba(10,10,15,0.3) 100%)",
+            "radial-gradient(ellipse at center, transparent 60%, rgba(12,12,20,0.3) 100%)",
         }}
       />
 
       {/* Day selector */}
       {simulation && simulation.days.length > 0 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex gap-1 bg-doom-panel/95 rounded-xl p-1.5 backdrop-blur-md border border-doom-border shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex gap-1 bg-doom-panel/95 rounded-lg p-1 backdrop-blur-sm border border-doom-border shadow-lg shadow-black/40">
           <button
             onClick={() => setSelectedDay(null)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50 ${
               selectedDay === null
-                ? "bg-doom-red text-white shadow-[0_0_15px_rgba(255,45,45,0.3)]"
-                : "text-gray-400 hover:text-white hover:bg-doom-surface"
+                ? "bg-doom-red text-white scale-105"
+                : "text-doom-text-muted hover:text-white hover:bg-doom-surface"
             }`}
           >
             All
@@ -168,10 +196,10 @@ export function WorldMap() {
             <button
               key={d.day}
               onClick={() => setSelectedDay(d.day)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold font-mono transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50 ${
                 selectedDay === d.day
-                  ? "bg-doom-red text-white shadow-[0_0_15px_rgba(255,45,45,0.3)]"
-                  : "text-gray-400 hover:text-white hover:bg-doom-surface"
+                  ? "bg-doom-red text-white scale-105"
+                  : "text-doom-text-muted hover:text-white hover:bg-doom-surface"
               }`}
             >
               D{d.day}
@@ -180,15 +208,53 @@ export function WorldMap() {
         </div>
       )}
 
-      {/* Empty state */}
-      {(!simulation || simulation.days.length === 0) && (
+      {/* Timeline toggle tab (visible when timeline is collapsed) */}
+      {!timelineOpen && simulation && simulation.days.length > 0 && (
+        <button
+          onClick={() => setTimelineOpen(true)}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-[1000] bg-doom-panel/90 backdrop-blur-md border border-r-0 border-doom-border rounded-l-lg px-1.5 py-4 text-doom-text-muted hover:text-white transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          <span className="text-[10px] font-mono mt-1 block [writing-mode:vertical-lr]">Timeline</span>
+        </button>
+      )}
+
+      {/* Hero empty state */}
+      {(!simulation || simulation.days.length === 0) && !isGenerating && (
         <div className="absolute inset-0 flex items-center justify-center z-[500] pointer-events-none">
           <div className="text-center">
-            <p className="text-gray-600 text-sm uppercase tracking-[0.2em]">
-              {simulation?.status === "generating"
-                ? "Generating events..."
-                : "Awaiting scenario"}
+            <h1 className="font-mono text-5xl font-bold tracking-widest text-white" style={{ textShadow: '0 0 40px rgba(229, 62, 62, 0.4), 0 0 80px rgba(229, 62, 62, 0.2)' }}>
+              DOOMSCROLL
+            </h1>
+            <p className="text-doom-text-muted text-sm mt-3 tracking-wide">
+              7-day geopolitical crisis simulator
             </p>
+            <p className="text-doom-text-faint text-xs mt-2">
+              Enter a scenario to begin
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Generating progress state */}
+      {isGenerating && (
+        <div className="absolute inset-0 flex items-center justify-center z-[500] pointer-events-none">
+          <div className="text-center">
+            <p className="text-doom-text-muted text-sm font-mono mb-4">
+              Generating Day {daysGenerated + 1} of 7...
+            </p>
+            <div className="flex gap-1.5 justify-center">
+              {Array.from({ length: 7 }, (_, i) => (
+                <div
+                  key={i}
+                  className={`w-8 h-1.5 rounded-full transition-colors duration-500 ${
+                    i < daysGenerated ? 'bg-doom-red' : 'bg-doom-border'
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}

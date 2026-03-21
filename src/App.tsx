@@ -5,11 +5,9 @@ import { Timeline } from './components/Timeline';
 function App() {
   return (
     <div className="relative h-screen bg-gray-950 text-white overflow-hidden">
-      <div className="flex h-full w-full">
-        <WorldMap />
-        <Timeline />
-      </div>
+      <WorldMap />
       <Sidebar />
+      <Timeline />
     </div>
   );
 }
