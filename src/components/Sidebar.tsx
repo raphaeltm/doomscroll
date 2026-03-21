@@ -47,20 +47,24 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-80 bg-gray-900 border-r border-gray-700 flex flex-col h-full overflow-y-auto">
-      <div className="p-4 border-b border-gray-700">
-        <h1 className="text-xl font-bold text-red-500 tracking-wider">
-          DOOMSCROLL
-        </h1>
-        <p className="text-xs text-gray-400 mt-1">
-          Geopolitical Event Simulator
+    <div className="w-80 bg-doom-panel border-r border-doom-border flex flex-col h-full overflow-y-auto shrink-0">
+      {/* Header */}
+      <div className="p-5 border-b border-doom-border">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-doom-red glow-pulse" />
+          <h1 className="text-2xl font-black tracking-[0.2em] text-doom-red uppercase">
+            Doomscroll
+          </h1>
+        </div>
+        <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-[0.3em] ml-4">
+          Geopolitical Simulator
         </p>
       </div>
 
-      <div className="p-4 space-y-4 flex-1">
+      <div className="p-5 space-y-5 flex-1">
         {/* API Keys */}
-        <div className="space-y-2">
-          <label className="block text-xs text-gray-400 uppercase tracking-wide">
+        <div className="space-y-1.5">
+          <label className="block text-[10px] text-gray-500 uppercase tracking-[0.15em] font-medium">
             Google AI API Key
           </label>
           <input
@@ -68,50 +72,68 @@ export function Sidebar() {
             value={googleApiKey}
             onChange={(e) => setGoogleApiKey(e.target.value)}
             placeholder="AIza..."
-            className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+            className="w-full bg-doom-dark border border-doom-border rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-doom-red/50 focus:shadow-[0_0_15px_rgba(255,45,45,0.15)] transition-all"
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="block text-xs text-gray-400 uppercase tracking-wide">
-            Video API Key (optional)
+        <div className="space-y-1.5">
+          <label className="block text-[10px] text-gray-500 uppercase tracking-[0.15em] font-medium">
+            Video API Key
+            <span className="text-gray-600 ml-1">(optional)</span>
           </label>
           <input
             type="password"
             value={videoApiKey}
             onChange={(e) => setVideoApiKey(e.target.value)}
             placeholder="API key..."
-            className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+            className="w-full bg-doom-dark border border-doom-border rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-doom-red/50 focus:shadow-[0_0_15px_rgba(255,45,45,0.15)] transition-all"
           />
         </div>
 
+        {/* Divider */}
+        <div className="border-t border-doom-border" />
+
         {/* Scenario Input */}
-        <div className="space-y-2">
-          <label className="block text-xs text-gray-400 uppercase tracking-wide">
+        <div className="space-y-1.5">
+          <label className="block text-[10px] text-gray-500 uppercase tracking-[0.15em] font-medium">
             Scenario
           </label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe a geopolitical event to simulate..."
-            rows={6}
-            className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-red-500 resize-none"
+            placeholder="A massive cyberattack disables power grids across three NATO countries simultaneously..."
+            rows={8}
+            className="w-full bg-doom-dark border border-doom-border rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-doom-red/50 focus:shadow-[0_0_15px_rgba(255,45,45,0.15)] transition-all resize-none leading-relaxed"
           />
         </div>
 
         <button
           onClick={handleSubmit}
           disabled={isGenerating || !googleApiKey || !prompt.trim()}
-          className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-2 px-4 rounded transition-colors text-sm uppercase tracking-wide"
+          className="w-full bg-doom-red hover:bg-red-500 disabled:bg-doom-surface disabled:text-gray-600 disabled:border-doom-border text-white font-bold py-3 px-4 rounded-lg transition-all text-sm uppercase tracking-[0.15em] border border-red-500/30 shadow-[0_0_20px_rgba(255,45,45,0.2)] hover:shadow-[0_0_40px_rgba(255,45,45,0.4)] active:scale-[0.98] disabled:shadow-none disabled:border-doom-border"
         >
-          {isGenerating ? 'Simulating...' : 'Run Simulation'}
+          {isGenerating ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Simulating...
+            </span>
+          ) : (
+            'Run Simulation'
+          )}
         </button>
 
         {simulation?.error && (
-          <div className="bg-red-900/50 border border-red-700 rounded p-3 text-sm text-red-300">
+          <div className="bg-red-950/50 border border-red-900/50 rounded-lg p-3 text-sm text-red-400">
             {simulation.error}
           </div>
         )}
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-doom-border">
+        <p className="text-[9px] text-gray-600 text-center uppercase tracking-widest">
+          Hackathon Build • Temporary Keys Only
+        </p>
       </div>
     </div>
   );
