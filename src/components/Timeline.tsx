@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { generateVideo } from '../api/video';
 import { buildVideoPrompt } from '../api/videoPrompt';
+import { cacheVideo } from '../api/cache';
 import type { Actor, TimelineDay } from '../types';
 
 const severityBadge: Record<string, string> = {
@@ -103,6 +104,10 @@ export function Timeline() {
     try {
       const videoUrl = await generateVideo(key, cleanPrompt);
       updateDay(day.day, { videoUrl, videoGenerating: false });
+      // Cache the video blob for future sessions
+      if (simulation?.prompt) {
+        cacheVideo(simulation.prompt, day.day, videoUrl);
+      }
     } catch (err) {
       console.error('Video generation failed:', err);
       updateDay(day.day, { videoGenerating: false });

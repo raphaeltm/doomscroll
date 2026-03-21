@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { runGeminiSimulation } from '../api/gemini';
 import { generateVideo } from '../api/video';
 import { buildVideoPrompt } from '../api/videoPrompt';
+import { getCachedSimulation, cacheSimulation, cacheVideo, restoreVideosForSimulation } from '../api/cache';
 
 const exampleScenarios = [
   "A massive cyberattack disables power grids across three NATO countries",
@@ -38,8 +39,61 @@ export function Sidebar() {
   const needsKey = !googleApiKey;
   const showSettings = showApiKeys || needsKey;
 
-  const handleSubmit = async () => {
+  const runSimulation = async (bypassCache: boolean) => {
     if (!googleApiKey || !prompt.trim()) return;
+
+    // Check cache first (unless bypassing)
+    if (!bypassCache) {
+      const cached = getCachedSimulation(prompt);
+      if (cached) {
+        setSidebarOpen(false);
+        const daysWithVideos = await restoreVideosForSimulation(prompt, cached.days);
+        const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+        // Replay the generation flow with staggered delays
+        setSimulation({
+          id: crypto.randomUUID(),
+          prompt,
+          title: 'Generating...',
+          days: [],
+          status: 'generating',
+        });
+
+        const jitter = (base: number) => base + Math.random() * base * 0.6;
+
+        setGenerationStatus('Fetching real-world data...');
+        await delay(jitter(1800));
+        setGenerationStatus('Scanning GDELT news feed...');
+        await delay(jitter(1400));
+        setGenerationStatus('Querying Wikidata for world leaders...');
+        await delay(jitter(1200));
+        setGenerationStatus('Identifying actors...');
+        await delay(jitter(2000));
+        setGenerationStatus('Researching actors...');
+        await delay(jitter(2500));
+
+        for (let i = 0; i < daysWithVideos.length; i++) {
+          setGenerationStatus(`Simulating day ${i + 1} of 7...`);
+          await delay(jitter(1500));
+          addDay(daysWithVideos[i]);
+          await delay(jitter(500));
+        }
+
+        setGenerationStatus('Analyzing escalation arc...');
+        await delay(jitter(1600));
+        setGenerationStatus('Generating summary...');
+        await delay(jitter(1400));
+
+        updateSimulation({
+          title: cached.title,
+          weekSummary: cached.weekSummary,
+          status: 'complete',
+          days: daysWithVideos,
+        });
+        setGenerationStatus('');
+        return;
+      }
+    }
 
     setSidebarOpen(false);
 
@@ -52,16 +106,20 @@ export function Sidebar() {
     });
 
     try {
-      const videoKey = videoApiKey || googleApiKey;
+      const vKey = videoApiKey || googleApiKey;
       const result = await runGeminiSimulation(googleApiKey, prompt, {
         onDayGenerated: (day) => {
           addDay(day);
           // Auto-trigger video generation for each day
-          if (videoKey && day.videoPrompt) {
+          if (vKey && day.videoPrompt) {
             const cleanPrompt = buildVideoPrompt(day);
             updateDay(day.day, { videoGenerating: true });
-            generateVideo(videoKey, cleanPrompt)
-              .then((videoUrl) => updateDay(day.day, { videoUrl, videoGenerating: false }))
+            generateVideo(vKey, cleanPrompt)
+              .then((videoUrl) => {
+                updateDay(day.day, { videoUrl, videoGenerating: false });
+                // Cache the video blob
+                cacheVideo(prompt, day.day, videoUrl);
+              })
               .catch((err) => {
                 console.error(`Video generation failed for day ${day.day}:`, err);
                 updateDay(day.day, { videoGenerating: false });
@@ -76,6 +134,12 @@ export function Sidebar() {
         status: 'complete',
         days: result.days,
       });
+      // Cache the simulation result
+      cacheSimulation(prompt, {
+        title: result.title,
+        days: result.days,
+        weekSummary: result.weekSummary,
+      });
       setGenerationStatus('');
     } catch (err) {
       updateSimulation({
@@ -85,6 +149,9 @@ export function Sidebar() {
       setGenerationStatus('');
     }
   };
+
+  const handleSubmit = () => runSimulation(false);
+  const handleRegenerate = () => runSimulation(true);
 
   // Collapsed toggle strip
   if (!sidebarOpen) {
@@ -155,20 +222,34 @@ export function Sidebar() {
           ))}
         </div>
 
-        <button
-          onClick={handleSubmit}
-          disabled={isGenerating || !googleApiKey || !prompt.trim()}
-          className="w-full bg-doom-red hover:bg-red-500 disabled:bg-doom-surface disabled:text-doom-text-faint disabled:border-doom-border text-white font-semibold py-3 px-4 rounded-lg transition-colors text-sm border border-doom-red/40 hover:border-red-400/40 active:scale-[0.98] disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-doom-red/50 focus-visible:ring-offset-2 focus-visible:ring-offset-doom-panel"
-        >
-          {isGenerating ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Simulating...
-            </span>
-          ) : (
-            'Run Simulation'
+        <div className="flex gap-2">
+          <button
+            onClick={handleSubmit}
+            disabled={isGenerating || !googleApiKey || !prompt.trim()}
+            className="flex-1 bg-doom-red hover:bg-red-500 disabled:bg-doom-surface disabled:text-doom-text-faint disabled:border-doom-border text-white font-semibold py-3 px-4 rounded-lg transition-colors text-sm border border-doom-red/40 hover:border-red-400/40 active:scale-[0.98] disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-doom-red/50 focus-visible:ring-offset-2 focus-visible:ring-offset-doom-panel"
+          >
+            {isGenerating ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Simulating...
+              </span>
+            ) : (
+              'Run Simulation'
+            )}
+          </button>
+          {getCachedSimulation(prompt) && !isGenerating && (
+            <button
+              onClick={handleRegenerate}
+              disabled={!googleApiKey || !prompt.trim()}
+              title="Bypass cache and regenerate"
+              className="bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white py-3 px-3 rounded-lg transition-colors text-sm border border-doom-border active:scale-[0.98] focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+              </svg>
+            </button>
           )}
-        </button>
+        </div>
 
         {/* Status message */}
         {isGenerating && generationStatus && (
