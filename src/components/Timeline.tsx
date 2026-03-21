@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
+import { generateVideo } from '../api/video';
 import type { Actor } from '../types';
 
 const severityBadge: Record<string, string> = {
@@ -77,7 +78,24 @@ function WeekSummary({ text }: { text: string }) {
 }
 
 export function Timeline() {
-  const { simulation, selectedDay, setSelectedDay, timelineOpen, setTimelineOpen } = useStore();
+  const { simulation, selectedDay, setSelectedDay, timelineOpen, setTimelineOpen, googleApiKey, videoApiKey, updateDay } = useStore();
+
+  const handleGenerateVideo = async (dayNumber: number, prompt: string) => {
+    const key = videoApiKey || googleApiKey;
+    if (!key) {
+      alert('Please set a Google API key (or Video API key) in the sidebar.');
+      return;
+    }
+    updateDay(dayNumber, { videoGenerating: true });
+    try {
+      const videoUrl = await generateVideo(key, prompt);
+      updateDay(dayNumber, { videoUrl, videoGenerating: false });
+    } catch (err) {
+      console.error('Video generation failed:', err);
+      updateDay(dayNumber, { videoGenerating: false });
+      alert(`Video generation failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
 
   if (!timelineOpen) return null;
 
@@ -227,7 +245,16 @@ export function Timeline() {
                       className="mt-2 w-full rounded-lg"
                     />
                   ) : (
-                    <button className="mt-2 w-full bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white text-xs py-2 rounded-lg transition-colors font-medium border border-doom-border/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!day.videoGenerating) {
+                          handleGenerateVideo(day.day, day.videoPrompt!);
+                        }
+                      }}
+                      disabled={day.videoGenerating}
+                      className="mt-2 w-full bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white text-xs py-2 rounded-lg transition-colors font-medium border border-doom-border/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       {day.videoGenerating
                         ? 'Generating...'
                         : 'Generate Video'}

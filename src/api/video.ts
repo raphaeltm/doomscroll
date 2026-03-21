@@ -1,36 +1,47 @@
-// Video generation API placeholder
-// Can be swapped for Luma, Runway, Pika, etc.
+import { GoogleGenAI } from '@google/genai';
 
+const POLL_INTERVAL_MS = 10_000;
+
+/**
+ * Generate a video using Gemini's Veo model directly from the browser.
+ * Returns a blob URL that can be used as a <video> src.
+ */
 export async function generateVideo(
-  _apiKey: string,
+  apiKey: string,
   prompt: string,
 ): Promise<string> {
-  // TODO: Integrate with actual video generation API
-  // For now, return a placeholder
-  console.log('Video generation requested:', { prompt });
+  const ai = new GoogleGenAI({ apiKey });
 
-  // Simulate generation delay
-  await new Promise((r) => setTimeout(r, 2000));
+  // Start video generation
+  let operation = await ai.models.generateVideos({
+    model: 'veo-3.1-generate-preview',
+    prompt,
+    config: {
+      numberOfVideos: 1,
+      durationSeconds: 6,
+      aspectRatio: '16:9',
+    },
+  });
 
-  // Return placeholder — replace with actual API call
-  return `https://placeholder.com/video?prompt=${encodeURIComponent(prompt)}`;
+  // Poll until done
+  while (!operation.done) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    operation = await ai.operations.getVideosOperation({ operation });
+  }
+
+  // Get the video file reference
+  const video = operation.response?.generatedVideos?.[0]?.video;
+  if (!video?.uri) {
+    throw new Error('No video was generated');
+  }
+
+  // The URI may already have query params (e.g. ?alt=media), so use & if needed
+  const separator = video.uri.includes('?') ? '&' : '?';
+  const downloadUrl = `${video.uri}${separator}key=${apiKey}`;
+  const resp = await fetch(downloadUrl);
+  if (!resp.ok) {
+    throw new Error(`Failed to download video: ${resp.status}`);
+  }
+  const blob = await resp.blob();
+  return URL.createObjectURL(blob);
 }
-
-// Luma AI example (uncomment and adjust when ready):
-// export async function generateVideoLuma(apiKey: string, prompt: string): Promise<string> {
-//   const response = await fetch('https://api.lumalabs.ai/dream-machine/v1/generations', {
-//     method: 'POST',
-//     headers: {
-//       'Authorization': `Bearer ${apiKey}`,
-//       'Content-Type': 'application/json',
-//     },
-//     body: JSON.stringify({
-//       prompt,
-//       aspect_ratio: '16:9',
-//       loop: false,
-//     }),
-//   });
-//   const data = await response.json();
-//   // Poll for completion...
-//   return data.video_url;
-// }
