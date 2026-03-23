@@ -291,6 +291,39 @@ async function generateWeekSummary(
   );
 }
 
+// --- News script generation for broadcast voiceover ---
+
+export async function generateNewsScript(
+  apiKey: string,
+  daySummaries: string[],
+): Promise<string> {
+  const ai = new GoogleGenAI({ apiKey });
+  const summaryBlock = daySummaries
+    .map((s, i) => `Day ${i + 1}: ${s}`)
+    .join('\n');
+
+  const response = await ai.models.generateContent({
+    model: FAST_MODEL,
+    contents: `Here are the day-by-day summaries of a 7-day geopolitical crisis:\n\n${summaryBlock}\n\nWrite a fast-paced breaking news broadcast script covering all 7 days.
+
+TIMING GUIDE:
+- 0:00-0:04 (4s): Intro music/graphics
+- 0:04-0:09 (5s): Anchor intro
+- 0:09-0:51 (42s): Cover all 7 days (~6s each)
+
+REQUIREMENTS:
+- 180-210 words (51 seconds at fast news pace)
+- Cover all 7 days
+- High energy, dramatic delivery
+- Output ONLY the script text — no timestamps, stage directions, or labels`,
+    config: {
+      systemInstruction: 'You are a dramatic breaking news anchor. Write only the spoken script text.',
+    },
+  });
+
+  return response.text ?? '';
+}
+
 // --- Main orchestrator ---
 
 export interface SimulationCallbacks {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { runGeminiSimulation } from '../api/gemini';
-import { generateVideo } from '../api/video';
+import { runGeminiSimulation, generateNewsScript } from '../api/gemini';
+import { generateVideo, generateTTS, stitchVideos } from '../api/video';
 import { buildVideoPrompt } from '../api/videoPrompt';
 
 const exampleScenarios = [
@@ -51,32 +51,83 @@ export function Sidebar() {
       status: 'generating',
     });
 
+    // Track video generation promises so we can wait for them at the end
+    const videoPromises: Promise<void>[] = [];
+
     try {
-      const videoKey = videoApiKey || googleApiKey;
+      const falKey = videoApiKey;
       const result = await runGeminiSimulation(googleApiKey, prompt, {
         onDayGenerated: (day) => {
           addDay(day);
-          // Auto-trigger video generation for each day
-          if (videoKey && day.videoPrompt) {
+          // Auto-trigger video generation via fal.ai
+          if (falKey && day.videoPrompt) {
             const cleanPrompt = buildVideoPrompt(day);
             updateDay(day.day, { videoGenerating: true });
-            generateVideo(videoKey, cleanPrompt)
+            const p = generateVideo(falKey, cleanPrompt)
               .then((videoUrl) => updateDay(day.day, { videoUrl, videoGenerating: false }))
               .catch((err) => {
                 console.error(`Video generation failed for day ${day.day}:`, err);
-                updateDay(day.day, { videoGenerating: false });
+                updateDay(day.day, { videoGenerating: false, videoError: err instanceof Error ? err.message : 'Video generation failed' });
               });
+            videoPromises.push(p);
           }
         },
         onStatusChange: (status) => setGenerationStatus(status),
+      });
+      // Merge result days with in-progress video state from the store
+      const currentDays = useStore.getState().simulation?.days ?? [];
+      const mergedDays = result.days.map((rd) => {
+        const existing = currentDays.find((d) => d.day === rd.day);
+        return existing ? { ...rd, videoUrl: existing.videoUrl, videoGenerating: existing.videoGenerating, videoError: existing.videoError } : rd;
       });
       updateSimulation({
         title: result.title,
         weekSummary: result.weekSummary,
         status: 'complete',
-        days: result.days,
+        days: mergedDays,
       });
       setGenerationStatus('');
+
+      // Post-simulation: stitch videos + generate audio overview
+      if (falKey) {
+        updateSimulation({ overviewGenerating: true });
+        setGenerationStatus('Waiting for day videos...');
+
+        // Wait for all day video generations to finish
+        await Promise.allSettled(videoPromises);
+
+        // Get the latest day video URLs from the store
+        const currentDays = useStore.getState().simulation?.days ?? [];
+        const dayVideoUrls = currentDays.map((d) => d.videoUrl ?? '');
+        const daySummaries = result.days.map((d) => d.summary);
+
+        try {
+          // Generate news script and TTS in parallel with stitching prep
+          setGenerationStatus('Generating broadcast overview...');
+          const [newsScript] = await Promise.all([
+            generateNewsScript(googleApiKey, daySummaries),
+          ]);
+          updateSimulation({ newsScript });
+
+          // Generate TTS audio from the script
+          setGenerationStatus('Generating voiceover...');
+          const audioUrl = await generateTTS(falKey, newsScript);
+          updateSimulation({ finalAudioUrl: audioUrl });
+
+          // Stitch all videos together with audio
+          setGenerationStatus('Stitching final broadcast...');
+          const finalVideoUrl = await stitchVideos(falKey, dayVideoUrls, audioUrl);
+          updateSimulation({ finalVideoUrl, overviewGenerating: false });
+          setGenerationStatus('');
+        } catch (err) {
+          console.error('Overview generation failed:', err);
+          updateSimulation({
+            overviewGenerating: false,
+            overviewError: err instanceof Error ? err.message : 'Overview generation failed',
+          });
+          setGenerationStatus('');
+        }
+      }
     } catch (err) {
       updateSimulation({
         status: 'error',
@@ -232,8 +283,8 @@ export function Sidebar() {
 
               <div className="space-y-1.5">
                 <label className="block text-xs text-doom-text-muted font-medium">
-                  Video API Key
-                  <span className="text-doom-text-faint ml-1">(optional)</span>
+                  fal.ai API Key
+                  <span className="text-doom-text-faint ml-1">(video + audio)</span>
                 </label>
                 <input
                   type="password"

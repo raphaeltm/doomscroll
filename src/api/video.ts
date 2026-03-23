@@ -1,47 +1,93 @@
-import { GoogleGenAI } from '@google/genai';
+// Video generation and stitching using fal.ai
 
-const POLL_INTERVAL_MS = 10_000;
+const INTRO_VIDEO_URL = 'https://v3b.fal.media/files/b/0a930ec5/kSmZNRTzNJ7DkGgZEdu9-_output.mp4';
+const LADY_VIDEO_URL = 'https://v3b.fal.media/files/b/0a930eb3/3xAZn2sT4JrtlwjyzoZ9k_e35315b4c76c478faafef9b57d102398.mp4';
 
-/**
- * Generate a video using Gemini's Veo model directly from the browser.
- * Returns a blob URL that can be used as a <video> src.
- */
+async function falRequest(apiKey: string, model: string, body: Record<string, unknown>) {
+  const response = await fetch(`https://fal.run/${model}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Key ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`fal.ai error (${model}): ${err}`);
+  }
+  return await response.json();
+}
+
 export async function generateVideo(
   apiKey: string,
   prompt: string,
 ): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey });
-
-  // Start video generation
-  let operation = await ai.models.generateVideos({
-    model: 'veo-3.1-generate-preview',
+  const result = await falRequest(apiKey, 'fal-ai/veo3.1/fast', {
     prompt,
-    config: {
-      numberOfVideos: 1,
-      durationSeconds: 6,
-      aspectRatio: '16:9',
-    },
+    duration: '8s',
+    aspect_ratio: '16:9',
+  });
+  return result.video.url;
+}
+
+export async function generateTTS(apiKey: string, text: string): Promise<string> {
+  const result = await falRequest(apiKey, 'fal-ai/minimax-tts/text-to-speech/turbo', {
+    text,
+    voice_speed: 1.2,
+  });
+  return result.audio.url;
+}
+
+async function getMediaMetadata(apiKey: string, mediaUrl: string): Promise<{ duration: number }> {
+  const result = await falRequest(apiKey, 'fal-ai/ffmpeg-api/metadata', {
+    media_url: mediaUrl,
+  });
+  return { duration: result.media.duration };
+}
+
+export async function stitchVideos(
+  apiKey: string,
+  videoUrls: string[],
+  audioUrl: string,
+): Promise<string> {
+  const allVideos = [INTRO_VIDEO_URL, LADY_VIDEO_URL, ...videoUrls.filter((u) => u)];
+
+  // Step 1: Merge all video clips
+  const mergeResult = await falRequest(apiKey, 'fal-ai/ffmpeg-api/merge-videos', {
+    video_urls: allVideos,
+  });
+  const mergedVideoUrl: string = mergeResult.video.url;
+
+  if (!audioUrl) return mergedVideoUrl;
+
+  // Step 2: Compose merged video with voiceover audio
+  const [videoMeta, audioMeta] = await Promise.all([
+    getMediaMetadata(apiKey, mergedVideoUrl),
+    getMediaMetadata(apiKey, audioUrl),
+  ]);
+
+  const result = await falRequest(apiKey, 'fal-ai/ffmpeg-api/compose', {
+    tracks: [
+      {
+        id: 'visuals',
+        type: 'video',
+        keyframes: [{ url: mergedVideoUrl, timestamp: 0, duration: videoMeta.duration }],
+      },
+      {
+        id: 'original_audio',
+        type: 'audio',
+        volume: 0.4,
+        keyframes: [{ url: mergedVideoUrl, timestamp: 0, duration: videoMeta.duration }],
+      },
+      {
+        id: 'voiceover',
+        type: 'audio',
+        volume: 1.0,
+        keyframes: [{ url: audioUrl, timestamp: 0, duration: audioMeta.duration }],
+      },
+    ],
   });
 
-  // Poll until done
-  while (!operation.done) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-    operation = await ai.operations.getVideosOperation({ operation });
-  }
-
-  // Get the video file reference
-  const video = operation.response?.generatedVideos?.[0]?.video;
-  if (!video?.uri) {
-    throw new Error('No video was generated');
-  }
-
-  // The URI may already have query params (e.g. ?alt=media), so use & if needed
-  const separator = video.uri.includes('?') ? '&' : '?';
-  const downloadUrl = `${video.uri}${separator}key=${apiKey}`;
-  const resp = await fetch(downloadUrl);
-  if (!resp.ok) {
-    throw new Error(`Failed to download video: ${resp.status}`);
-  }
-  const blob = await resp.blob();
-  return URL.createObjectURL(blob);
+  return result.video_url || result.url;
 }
