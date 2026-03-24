@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { runGeminiSimulation, generateNewsScript } from '../api/gemini';
-import { generateVideo, generateTTS, stitchVideos } from '../api/video';
-import { buildVideoPrompt } from '../api/videoPrompt';
+import { runSimulation } from '../api/client';
 
 const exampleScenarios = [
   "A massive cyberattack disables power grids across three NATO countries",
@@ -12,20 +10,11 @@ const exampleScenarios = [
 
 export function Sidebar() {
   const [prompt, setPrompt] = useState('');
-  const [showApiKeys, setShowApiKeys] = useState(false);
-  const [showVideoTest, setShowVideoTest] = useState(false);
-  const [videoTestJson, setVideoTestJson] = useState('');
-  const [videoTestStatus, setVideoTestStatus] = useState('');
   const {
-    googleApiKey,
-    setGoogleApiKey,
-    videoApiKey,
-    setVideoApiKey,
     simulation,
     setSimulation,
     updateSimulation,
     addDay,
-    updateDay,
     sidebarOpen,
     setSidebarOpen,
     generationStatus,
@@ -34,12 +23,8 @@ export function Sidebar() {
 
   const isGenerating = simulation?.status === 'generating';
 
-  // Auto-expand settings when API key is missing
-  const needsKey = !googleApiKey;
-  const showSettings = showApiKeys || needsKey;
-
   const handleSubmit = async () => {
-    if (!googleApiKey || !prompt.trim()) return;
+    if (!prompt.trim()) return;
 
     setSidebarOpen(false);
 
@@ -51,83 +36,19 @@ export function Sidebar() {
       status: 'generating',
     });
 
-    // Track video generation promises so we can wait for them at the end
-    const videoPromises: Promise<void>[] = [];
-
     try {
-      const falKey = videoApiKey;
-      const result = await runGeminiSimulation(googleApiKey, prompt, {
-        onDayGenerated: (day) => {
-          addDay(day);
-          // Auto-trigger video generation via fal.ai
-          if (falKey && day.videoPrompt) {
-            const cleanPrompt = buildVideoPrompt(day);
-            updateDay(day.day, { videoGenerating: true });
-            const p = generateVideo(falKey, cleanPrompt)
-              .then((videoUrl) => updateDay(day.day, { videoUrl, videoGenerating: false }))
-              .catch((err) => {
-                console.error(`Video generation failed for day ${day.day}:`, err);
-                updateDay(day.day, { videoGenerating: false, videoError: err instanceof Error ? err.message : 'Video generation failed' });
-              });
-            videoPromises.push(p);
-          }
-        },
+      const result = await runSimulation(prompt, {
+        onDayGenerated: (day) => addDay(day),
         onStatusChange: (status) => setGenerationStatus(status),
       });
-      // Merge result days with in-progress video state from the store
-      const currentDays = useStore.getState().simulation?.days ?? [];
-      const mergedDays = result.days.map((rd) => {
-        const existing = currentDays.find((d) => d.day === rd.day);
-        return existing ? { ...rd, videoUrl: existing.videoUrl, videoGenerating: existing.videoGenerating, videoError: existing.videoError } : rd;
-      });
+
       updateSimulation({
         title: result.title,
         weekSummary: result.weekSummary,
         status: 'complete',
-        days: mergedDays,
+        days: result.days,
       });
       setGenerationStatus('');
-
-      // Post-simulation: stitch videos + generate audio overview
-      if (falKey) {
-        updateSimulation({ overviewGenerating: true });
-        setGenerationStatus('Waiting for day videos...');
-
-        // Wait for all day video generations to finish
-        await Promise.allSettled(videoPromises);
-
-        // Get the latest day video URLs from the store
-        const currentDays = useStore.getState().simulation?.days ?? [];
-        const dayVideoUrls = currentDays.map((d) => d.videoUrl ?? '');
-        const daySummaries = result.days.map((d) => d.summary);
-
-        try {
-          // Generate news script and TTS in parallel with stitching prep
-          setGenerationStatus('Generating broadcast overview...');
-          const [newsScript] = await Promise.all([
-            generateNewsScript(googleApiKey, daySummaries),
-          ]);
-          updateSimulation({ newsScript });
-
-          // Generate TTS audio from the script
-          setGenerationStatus('Generating voiceover...');
-          const audioUrl = await generateTTS(falKey, newsScript);
-          updateSimulation({ finalAudioUrl: audioUrl });
-
-          // Stitch all videos together with audio
-          setGenerationStatus('Stitching final broadcast...');
-          const finalVideoUrl = await stitchVideos(falKey, dayVideoUrls, audioUrl);
-          updateSimulation({ finalVideoUrl, overviewGenerating: false });
-          setGenerationStatus('');
-        } catch (err) {
-          console.error('Overview generation failed:', err);
-          updateSimulation({
-            overviewGenerating: false,
-            overviewError: err instanceof Error ? err.message : 'Overview generation failed',
-          });
-          setGenerationStatus('');
-        }
-      }
     } catch (err) {
       updateSimulation({
         status: 'error',
@@ -179,7 +100,7 @@ export function Sidebar() {
       </div>
 
       <div className="p-5 space-y-4 flex-1">
-        {/* Scenario Input — first */}
+        {/* Scenario Input */}
         <div className="space-y-1.5">
           <label className="block text-xs text-doom-text-muted font-medium">
             Scenario
@@ -208,7 +129,7 @@ export function Sidebar() {
 
         <button
           onClick={handleSubmit}
-          disabled={isGenerating || !googleApiKey || !prompt.trim()}
+          disabled={isGenerating || !prompt.trim()}
           className="w-full bg-doom-red hover:bg-red-500 disabled:bg-doom-surface disabled:text-doom-text-faint disabled:border-doom-border text-white font-semibold py-3 px-4 rounded-lg transition-colors text-sm border border-doom-red/40 hover:border-red-400/40 active:scale-[0.98] disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-doom-red/50 focus-visible:ring-offset-2 focus-visible:ring-offset-doom-panel"
         >
           {isGenerating ? (
@@ -234,152 +155,6 @@ export function Sidebar() {
         {simulation?.error && (
           <div className="bg-red-950/50 border border-red-900/50 rounded-lg p-3 text-sm text-red-400">
             {simulation.error}
-          </div>
-        )}
-
-        {/* Collapsible API Keys */}
-        <div className="border-t border-doom-border pt-3">
-          <button
-            type="button"
-            onClick={() => setShowApiKeys(!showSettings || needsKey ? !showApiKeys : !showSettings)}
-            className="flex items-center justify-between w-full text-xs text-doom-text-muted hover:text-doom-text transition-colors focus:outline-none"
-          >
-            <span className="flex items-center gap-1.5 font-medium">
-              API Keys
-              {googleApiKey && (
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" title="Key configured" />
-              )}
-            </span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={`transition-transform duration-200 ${showSettings ? 'rotate-180' : ''}`}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-
-          {showSettings && (
-            <div className="mt-3 space-y-3 animate-fade-slide-in">
-              <div className="space-y-1.5">
-                <label className="block text-xs text-doom-text-muted font-medium">
-                  Google AI API Key
-                </label>
-                <input
-                  type="password"
-                  value={googleApiKey}
-                  onChange={(e) => setGoogleApiKey(e.target.value)}
-                  placeholder="AIza..."
-                  className="w-full bg-doom-surface border border-doom-border rounded-lg px-3 py-2.5 text-sm text-doom-text placeholder-doom-text-faint focus:outline-none focus-visible:border-doom-red focus-visible:ring-1 focus-visible:ring-doom-red/30 transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs text-doom-text-muted font-medium">
-                  fal.ai API Key
-                  <span className="text-doom-text-faint ml-1">(video + audio)</span>
-                </label>
-                <input
-                  type="password"
-                  value={videoApiKey}
-                  onChange={(e) => setVideoApiKey(e.target.value)}
-                  placeholder="API key..."
-                  className="w-full bg-doom-surface border border-doom-border rounded-lg px-3 py-2.5 text-sm text-doom-text placeholder-doom-text-faint focus:outline-none focus-visible:border-doom-red focus-visible:ring-1 focus-visible:ring-doom-red/30 transition-colors"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Video Test Panel — hidden under API keys */}
-        {showSettings && (
-          <div className="border-t border-doom-border pt-3">
-            <button
-              type="button"
-              onClick={() => setShowVideoTest(!showVideoTest)}
-              className="flex items-center justify-between w-full text-xs text-doom-text-faint hover:text-doom-text-muted transition-colors focus:outline-none"
-            >
-              <span className="font-medium">Test Video Gen</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={`transition-transform duration-200 ${showVideoTest ? 'rotate-180' : ''}`}
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-
-            {showVideoTest && (
-              <div className="mt-2 space-y-2 animate-fade-slide-in">
-                <textarea
-                  value={videoTestJson}
-                  onChange={(e) => setVideoTestJson(e.target.value)}
-                  placeholder='{"title":"NATO summit...","description":"...","location":{"lat":50.85,"lng":4.35,"name":"Brussels"},...}'
-                  rows={5}
-                  className="w-full bg-doom-surface border border-doom-border rounded-lg px-3 py-2 text-[11px] text-doom-text placeholder-doom-text-faint focus:outline-none focus-visible:border-doom-red focus-visible:ring-1 focus-visible:ring-doom-red/30 transition-colors resize-none font-mono leading-relaxed"
-                />
-                <button
-                  onClick={async () => {
-                    const key = videoApiKey || googleApiKey;
-                    if (!key) {
-                      setVideoTestStatus('Error: Set an API key first');
-                      return;
-                    }
-                    let parsed;
-                    try {
-                      parsed = JSON.parse(videoTestJson);
-                    } catch {
-                      setVideoTestStatus('Error: Invalid JSON');
-                      return;
-                    }
-                    // Build prompt from event JSON (same as backend buildPrompt)
-                    const parts = [];
-                    parts.push(`Breaking news scene: ${parsed.title || 'A major geopolitical event unfolds'}.`);
-                    if (parsed.description) parts.push(parsed.description);
-                    if (parsed.location?.name) parts.push(`Set in ${parsed.location.name}.`);
-                    if (parsed.actors?.length) {
-                      const names = parsed.actors.map((a: { name?: string }) => a.name || a).join(', ');
-                      parts.push(`Key figures involved: ${names}.`);
-                    }
-                    if (parsed.scene) parts.push(parsed.scene);
-                    parts.push('Cinematic news footage style. No spoken dialogue or voiceover. Only ambient background sounds and dramatic music.');
-                    const prompt = parts.join(' ');
-
-                    setVideoTestStatus('Generating... (this takes ~1-2 min)');
-                    try {
-                      const url = await generateVideo(key, prompt);
-                      setVideoTestStatus(`Done! URL: ${url}`);
-                      window.open(url, '_blank');
-                    } catch (err) {
-                      setVideoTestStatus(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
-                    }
-                  }}
-                  disabled={videoTestStatus.startsWith('Generating')}
-                  className="w-full bg-doom-surface hover:bg-doom-border text-doom-text-muted hover:text-white text-xs py-2 rounded-lg transition-colors font-medium border border-doom-border/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-doom-red/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {videoTestStatus.startsWith('Generating') ? 'Generating...' : 'Test Generate'}
-                </button>
-                {videoTestStatus && (
-                  <p className={`text-[10px] break-all ${videoTestStatus.startsWith('Error') ? 'text-red-400' : videoTestStatus.startsWith('Done') ? 'text-green-400' : 'text-doom-text-muted'}`}>
-                    {videoTestStatus}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>

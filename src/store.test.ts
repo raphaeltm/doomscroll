@@ -4,20 +4,11 @@ import { useStore } from './store';
 describe('store', () => {
   beforeEach(() => {
     useStore.setState({
-      googleApiKey: '',
-      videoApiKey: '',
       simulation: null,
       selectedDay: null,
       sidebarOpen: true,
       timelineOpen: true,
     });
-  });
-
-  it('persists API keys to localStorage', () => {
-    useStore.getState().setGoogleApiKey('google-key-123');
-    useStore.getState().setVideoApiKey('video-key-456');
-    expect(localStorage.getItem('googleApiKey')).toBe('google-key-123');
-    expect(localStorage.getItem('videoApiKey')).toBe('video-key-456');
   });
 
   it('sets simulation', () => {
@@ -50,19 +41,6 @@ describe('store', () => {
 
     expect(useStore.getState().simulation?.days).toHaveLength(1);
     expect(useStore.getState().simulation?.days[0].summary).toBe('First day');
-  });
-
-  it('updates a day', () => {
-    useStore.getState().setSimulation({
-      id: '1',
-      prompt: 'test',
-      title: 'Test',
-      days: [{ day: 1, date: 'Day 1', summary: 'First', events: [] }],
-      status: 'complete',
-    });
-
-    useStore.getState().updateDay(1, { summary: 'Updated' });
-    expect(useStore.getState().simulation?.days[0].summary).toBe('Updated');
   });
 
   it('selects a day', () => {

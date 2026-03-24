@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import type { Actor } from '../types';
-import { BroadcastPlayer } from './BroadcastPlayer';
 
 const severityBadge: Record<string, string> = {
   low: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
@@ -133,9 +132,6 @@ export function Timeline() {
       {/* Week summary — collapsible */}
       {simulation.weekSummary && <WeekSummary text={simulation.weekSummary} />}
 
-      {/* Broadcast player */}
-      <BroadcastPlayer />
-
       {/* Timeline */}
       <div className="flex-1 overflow-y-auto">
         {daysToShow.map((day) => (
@@ -250,34 +246,6 @@ export function Timeline() {
                 })}
               </div>
 
-              {/* Video section */}
-              {day.videoUrl ? (
-                <div className="mt-3 bg-doom-dark/50 rounded-lg p-3 border border-doom-border/30">
-                  <div className="text-[10px] uppercase tracking-wider text-doom-text-faint mb-1.5 font-medium font-mono">
-                    Day {day.day} footage
-                  </div>
-                  <video
-                    src={day.videoUrl}
-                    controls
-                    className="w-full rounded-lg"
-                  />
-                </div>
-              ) : day.videoGenerating ? (
-                <div className="mt-3 bg-doom-dark/50 rounded-lg p-3 border border-doom-border/30">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 border-2 border-doom-text-faint/30 border-t-doom-red rounded-full animate-spin" />
-                    <span className="text-xs text-doom-text-muted">
-                      Generating video...
-                    </span>
-                  </div>
-                </div>
-              ) : day.videoError ? (
-                <div className="mt-3 bg-red-950/20 rounded-lg p-3 border border-red-500/20">
-                  <span className="text-xs text-red-400">
-                    Video failed: {day.videoError}
-                  </span>
-                </div>
-              ) : null}
             </div>
           </div>
         ))}

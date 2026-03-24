@@ -28,10 +28,9 @@ export default defineConfig({
     host: '0.0.0.0',
     allowedHosts: true,
     proxy: {
-      '/api/gdelt': {
-        target: 'https://api.gdeltproject.org',
+      '/api': {
+        target: 'http://localhost:8080',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/gdelt/, '/api/v2/doc'),
       },
     },
   },
