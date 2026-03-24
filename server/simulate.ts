@@ -118,31 +118,50 @@ function buildContextBlock(context: RealWorldContext): string {
   return '\n\n' + parts.join('\n');
 }
 
-// --- Identify actors (with Google Search grounding) ---
+// --- Identify actors (with Google Search grounding, fallback to structured output) ---
 
-async function identifyActors(ai: GoogleGenAI, prompt: string, contextBlock: string): Promise<Actor[]> {
-  const today = new Date().toISOString().split('T')[0];
-  const systemPrompt = `You are a geopolitical analyst. Today's date is ${today}.
+const ACTOR_SYSTEM_PROMPT = `You are a geopolitical analyst. You MUST respond in English regardless of the input language.
 
 You MUST use the real-world context data provided below (current leaders from Wikidata, recent news from GDELT) as your primary source of truth. Do NOT rely on your training data for current leadership positions — the provided context reflects the real world right now.
 
-Given a scenario and real-world context, identify the 4-8 key actors (states, organizations, military forces, media outlets, individuals) who would be most involved. Use REAL names of current leaders and organizations based on the provided context. Be specific and accurate.
+Given a scenario and real-world context, identify the 4-8 key actors (states, organizations, military forces, media outlets, individuals) who would be most involved. Use REAL names of current leaders and organizations based on the provided context. Be specific and accurate.`;
 
-Respond with JSON matching this schema: { "actors": [{ "name": string, "type": "state"|"organization"|"individual"|"military"|"media", "description": string }] }`;
+async function identifyActors(ai: GoogleGenAI, prompt: string, contextBlock: string): Promise<Actor[]> {
+  const today = new Date().toISOString().split('T')[0];
+  const systemPrompt = `${ACTOR_SYSTEM_PROMPT}\n\nToday's date is ${today}.\n\nYou MUST respond with ONLY a JSON object matching this schema: { "actors": [{ "name": string, "type": "state"|"organization"|"individual"|"military"|"media", "description": string }] }\n\nDo NOT include any text before or after the JSON.`;
 
-  const response = await ai.models.generateContent({
-    model: FAST_MODEL,
-    contents: `Identify the key geopolitical actors in this scenario:\n\n${prompt}${contextBlock}`,
-    config: {
-      systemInstruction: systemPrompt,
-      tools: [{ googleSearch: {} }],
-    },
-  });
+  const userPrompt = `Identify the key geopolitical actors in this scenario:\n\n${prompt}${contextBlock}`;
 
-  const text = response.text ?? '';
-  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) ?? text.match(/(\{[\s\S]*\})/);
-  const json = jsonMatch ? jsonMatch[1].trim() : text.trim();
-  const result = actorsResponseSchema.parse(JSON.parse(json));
+  // Try with Google Search grounding first
+  try {
+    const response = await ai.models.generateContent({
+      model: FAST_MODEL,
+      contents: userPrompt,
+      config: {
+        systemInstruction: systemPrompt,
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    const text = response.text ?? '';
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) ?? text.match(/(\{[\s\S]*\})/);
+    if (jsonMatch) {
+      const json = jsonMatch[1].trim();
+      const result = actorsResponseSchema.parse(JSON.parse(json));
+      return result.actors;
+    }
+  } catch {
+    // Grounded call failed to produce valid JSON — fall through to structured output
+  }
+
+  // Fallback: structured output without grounding (guaranteed JSON)
+  const result = await callGemini(
+    ai,
+    FAST_MODEL,
+    `${ACTOR_SYSTEM_PROMPT}\n\nToday's date is ${today}.`,
+    userPrompt,
+    actorsResponseSchema,
+  );
   return result.actors;
 }
 
