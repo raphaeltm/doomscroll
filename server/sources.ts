@@ -1,10 +1,32 @@
-import { GoogleGenAI } from '@google/genai';
+import type { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
-import type { GDELTEvent, WikidataActor, RealWorldContext } from '../types';
 
-const FAST_MODEL = 'gemini-2.5-flash';
+// --- Types ---
+
+export interface GDELTEvent {
+  title: string;
+  url: string;
+  domain: string;
+  lat: number;
+  lng: number;
+  locationName: string;
+  tone: number;
+}
+
+export interface WikidataActor {
+  name: string;
+  position: string;
+  country: string;
+}
+
+export interface RealWorldContext {
+  gdeltEvents: GDELTEvent[];
+  actors: WikidataActor[];
+}
 
 // --- Zod schemas for LLM extraction ---
+
+const FAST_MODEL = 'gemini-2.5-flash';
 
 const keywordsSchema = z.object({
   keywords: z.array(z.string()).describe('3-6 concise search keywords for finding relevant news articles'),
@@ -116,6 +138,10 @@ function mapCountryNamesToIds(countryNames: string[]): string[] {
   return ids;
 }
 
+// --- GDELT DOC API ---
+
+const GDELT_BASE = 'https://api.gdeltproject.org/api/v2/doc';
+
 export async function fetchGDELTEvents(scenario: string, ai?: GoogleGenAI): Promise<GDELTEvent[]> {
   let keywords: string;
   if (ai) {
@@ -129,18 +155,16 @@ export async function fetchGDELTEvents(scenario: string, ai?: GoogleGenAI): Prom
   }
   if (!keywords) return [];
 
-  // Use the DOC API (ArtList mode) — the GEO API endpoint has been removed
-  const url = `/api/gdelt/doc?query=${encodeURIComponent(keywords)}&mode=ArtList&format=json&timespan=3d&maxrecords=50`;
+  const url = `${GDELT_BASE}?query=${encodeURIComponent(keywords)}&mode=ArtList&format=json&timespan=3d&maxrecords=50`;
 
   try {
     const res = await fetch(url);
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await res.json() as { articles?: Array<Record<string, string>> };
 
     const articles = data.articles;
     if (!Array.isArray(articles)) return [];
 
-    // Take top 20 events, deduplicated by title
     const seen = new Set<string>();
     const events: GDELTEvent[] = [];
 
@@ -174,7 +198,6 @@ export async function fetchWikidataActors(scenario: string, ai?: GoogleGenAI): P
     try {
       const countryNames = await extractCountriesWithLLM(ai, scenario);
       countryIds = mapCountryNamesToIds(countryNames);
-      // Fall back to string extraction if LLM returned no mappable countries
       if (countryIds.length === 0) {
         countryIds = extractCountries(scenario);
       }
@@ -215,7 +238,7 @@ export async function fetchWikidataActors(scenario: string, ai?: GoogleGenAI): P
       headers: { 'Accept': 'application/sparql-results+json' },
     });
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await res.json() as { results?: { bindings?: Array<Record<string, { value?: string }>> } };
 
     const seen = new Set<string>();
     const actors: WikidataActor[] = [];

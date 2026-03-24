@@ -4,7 +4,7 @@ import { WorldMap } from './WorldMap';
 import { useStore } from '../store';
 
 // Polyfill ResizeObserver for jsdom
-global.ResizeObserver = class ResizeObserver {
+globalThis.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}

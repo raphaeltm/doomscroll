@@ -1,6 +1,9 @@
 services:
   app:
     build: .
+    x-defang-llm: true
     ports:
-      - "8080:80"
+      - "8080:8080"
+    environment:
+      - GOOGLE_GENAI_USE_VERTEXAI=true
     restart: unless-stopped
